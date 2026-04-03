@@ -4,6 +4,21 @@ export const R$ = (v, compact = false) => {
   return 'R$ ' + n.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')
 }
 
+export const maskMoney = (v) => {
+  let val = typeof v === 'number' 
+    ? v.toFixed(2).replace(/\D/g, "") 
+    : String(v || "").replace(/\D/g, "")
+
+  if (!val) return "0,00"
+  val = (Number(val) / 100).toFixed(2).replace(".", ",")
+  return val.replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+}
+
+export const parseMoney = (v) => {
+  if (!v) return 0
+  return Number(String(v).replace(/\D/g, "")) / 100
+}
+
 export const dataBR = (iso) => {
   if (!iso) return ''
   const d = iso.slice(0, 10).split('-')

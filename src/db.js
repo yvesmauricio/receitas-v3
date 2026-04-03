@@ -2,12 +2,25 @@ import Dexie from 'dexie'
 
 export const db = new Dexie('ChocoStoqDB')
 
-// Schema limpo: filas de sincronização + cache chave-valor
-db.version(4).stores({
-  produtos:   '++id, uuid, nome',
-  receitas:   '++id, uuid, nome',
-  producoes:  '++id, uuid, data_producao',
+// Schema v5: uuid como chave primária (resolve bug de CRUD com put/delete)
+db.version(5).stores({
+  produtos:   'uuid, nome',
+  receitas:   'uuid, nome',
+  producoes:  'uuid, data_producao',
   config:     'chave'
+}).upgrade(tx => {
+  // Migra registros antigos que podem não ter uuid
+  return tx.table('produtos').toCollection().modify(p => {
+    if (!p.uuid) p.uuid = crypto.randomUUID()
+  }).then(() =>
+    tx.table('receitas').toCollection().modify(r => {
+      if (!r.uuid) r.uuid = crypto.randomUUID()
+    })
+  ).then(() =>
+    tx.table('producoes').toCollection().modify(p => {
+      if (!p.uuid) p.uuid = crypto.randomUUID()
+    })
+  )
 })
 
 // ─── Config local ──────────────────────────────────────────────

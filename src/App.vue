@@ -6,6 +6,7 @@
       <TabInsumos   v-show="s.tab === 'insumos'" />
       <TabReceitas  v-show="s.tab === 'receitas'" />
       <TabProducao  v-show="s.tab === 'producao'" />
+      <TabPainel  v-show="s.tab === 'painel'" />
     </main>
 
     <AppNav />
@@ -56,6 +57,7 @@ import BaseModal from './components/BaseModal.vue'
 import TabInsumos from './views/TabInsumos.vue'
 import TabReceitas from './views/TabReceitas.vue'
 import TabProducao from './views/TabProducao.vue'
+import TabPainel from './views/TabPainel.vue'
 
 const s = useStore()
 

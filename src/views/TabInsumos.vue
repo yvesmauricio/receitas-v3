@@ -19,7 +19,7 @@
     <div v-if="s.loading" class="loading-box"><div class="spinner spinner-sm"></div></div>
 
     <template v-else-if="lista.length">
-      <div v-for="p in lista" :key="p.id||p.uuid" class="list-row">
+      <div v-for="p in lista" :key="p.uuid" class="list-row">
         <div class="row-info pointer" @click="abrir(p)">
           <div class="row-name">{{ p.nome }}</div>
           <div class="row-sub">
@@ -41,7 +41,7 @@
     </div>
 
     <!-- ─── Modal Insumo ──────────────────────────────────────── -->
-    <BaseModal v-if="modal === 'insumo'" :title="form.id ? 'Editar Insumo' : 'Novo Insumo'" @close="modal = null">
+    <BaseModal v-if="modal === 'insumo'" :title="form.uuid ? 'Editar Insumo' : 'Novo Insumo'" @close="modal = null">
       <div class="fg"><label class="label label-req">Nome</label><input v-model="form.nome" class="input" autofocus /></div>
       <div class="grid-2">
         <div class="fg">
@@ -72,19 +72,28 @@
         </div>
       </div>
       <div class="grid-2">
-        <div class="fg"><label class="label">Preço Compra (R$)</label><input v-model.number="form.custo_por_unidade" class="input" type="number" min="0" step="0.01" /></div>
+        <div class="fg">
+  <label class="label">Preço Compra (R$)</label>
+  <input
+    :value="maskMoney(form.custo_por_unidade)"
+    @input="e => form.custo_por_unidade = parseMoney(e.target.value)"
+    inputmode="numeric"
+    class="input"
+    placeholder="0,00"
+  />
+  </div>
         <div class="fg">
           <label class="label">Custo por {{ form.unidade_base }}</label>
           <input :value="custoPorBase" class="input input-ro" readonly />
         </div>
       </div>
       <template #foot>
-        <button v-if="form.id" class="btn btn-danger" @click="excluir"><i class="fas fa-trash"></i></button>
+        <button v-if="form.uuid" class="btn btn-danger" @click="excluir"><i class="fas fa-trash"></i></button>
         <div class="spacer"></div>
         <button class="btn btn-secondary" @click="modal = null">Cancelar</button>
         <button class="btn btn-primary" :disabled="!form.nome || saving" @click="salvar">
           <i v-if="saving" class="fas fa-spinner fa-spin"></i>
-          <span v-else>{{ form.id ? 'Salvar' : 'Criar' }}</span>
+          <span v-else>{{ form.uuid ? 'Salvar' : 'Criar' }}</span>
         </button>
       </template>
     </BaseModal>
@@ -94,62 +103,202 @@
 <script setup>
 import { ref, computed, reactive } from 'vue'
 import { useStore } from '../store.js'
-import { R$, fmtQtd as fmtQ, normalizar } from '../utils.js'
+import { R$, fmtQtd as fmtQ, normalizar, parseMoney, maskMoney } from '../utils.js'
 import BaseModal from '../components/BaseModal.vue'
 
 const s = useStore()
+
 const busca  = ref('')
 const filtro = ref('todos')
 const modal  = ref(null)
 const saving = ref(false)
 
+/* ────────────────────────────────
+   💰 MASKS
+──────────────────────────────── */
+const custoMask = ref('')
+
+function onInputMoney(e, field, maskRef) {
+  const raw = e.target.value
+  const masked = maskMoney(raw)
+
+  maskRef.value = masked
+  field.value = parseMoney(masked) || 0
+}
+
+/* ────────────────────────────────
+   🔎 FILTROS
+──────────────────────────────── */
 const filtros = [
-  { v: 'todos', l: 'Todos' }, { v: 'base', l: 'Bases' }, { v: 'final', l: 'Finais' }, { v: 'baixo', l: '⚠️ Baixo' }
+  { v: 'todos', l: 'Todos' },
+  { v: 'base', l: 'Bases' },
+  { v: 'final', l: 'Finais' },
+  { v: 'baixo', l: '⚠️ Baixo' }
 ]
+
 const UNIDADES_COMPRA = ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pct', 'dz']
 
 const lista = computed(() => {
   let r = s.produtos
+
   if (filtro.value === 'baixo') r = s.baixoEstoque
   else if (filtro.value !== 'todos') r = r.filter(p => p.tipo === filtro.value)
-  if (busca.value.trim()) { const q = normalizar(busca.value); r = r.filter(p => normalizar(p.nome + ' ' + p.tipo).includes(q)) }
+
+  if (busca.value.trim()) {
+    const q = normalizar(busca.value)
+    r = r.filter(p => normalizar(p.nome + ' ' + p.tipo).includes(q))
+  }
+
   return [...r].sort((a, b) => a.nome?.localeCompare(b.nome))
 })
 
-const form = reactive({ id: null, uuid: null, nome: '', tipo: 'insumo', unidade_compra: 'kg', unidade_base: 'g', fator_conversao: 1000, estoque_atual: 0, estoque_minimo: 0, custo_por_unidade: 0 })
+/* ────────────────────────────────
+   📦 FORM
+──────────────────────────────── */
+const form = reactive({
+  id: null,
+  uuid: null,
+  nome: '',
+  tipo: 'insumo',
+  unidade_compra: 'kg',
+  unidade_base: 'g',
+  fator_conversao: 1000,
+  estoque_atual: 0,
+  estoque_minimo: 0,
+  custo_por_unidade: 0
+})
+
 const custoPorBase = computed(() => {
-  const c = +form.custo_por_unidade, f = +form.fator_conversao
+  const c = +form.custo_por_unidade
+  const f = +form.fator_conversao
   return (c && f) ? R$(c / f) : 'R$ 0,00'
 })
-const compra = reactive({ produto: null, qtd: null, custo: null, obs: '' })
 
-function tipoBadge(t) { return { insumo:'badge-muted', base:'badge-blue', final:'badge-gold', embalagem:'badge-orange' }[t]||'badge-muted' }
-function tipoLabel(t) { return { insumo:'Insumo', base:'Base', final:'Final', embalagem:'Embalagem' }[t]||t||'-' }
-function estoqueBaixo(p) { return +(p.estoque_atual||0) <= +(p.estoque_minimo||0) && +(p.estoque_minimo||0) > 0 }
+/* ────────────────────────────────
+   🛒 COMPRA
+──────────────────────────────── */
+const compra = reactive({
+  produto: null,
+  qtd: null,
+  custo: null,
+  obs: ''
+})
 
+/* ────────────────────────────────
+   🎨 HELPERS
+──────────────────────────────── */
+function tipoBadge(t) {
+  return {
+    insumo: 'badge-muted',
+    base: 'badge-blue',
+    final: 'badge-gold',
+    embalagem: 'badge-orange'
+  }[t] || 'badge-muted'
+}
+
+function tipoLabel(t) {
+  return {
+    insumo: 'Insumo',
+    base: 'Base',
+    final: 'Final',
+    embalagem: 'Embalagem'
+  }[t] || t || '-'
+}
+
+function estoqueBaixo(p) {
+  return +(p.estoque_atual || 0) <= +(p.estoque_minimo || 0) &&
+         +(p.estoque_minimo || 0) > 0
+}
+
+/* ────────────────────────────────
+   🪟 MODAIS
+──────────────────────────────── */
 function abrir(p) {
-  Object.assign(form, { id: null, uuid: null, nome: '', tipo: 'insumo', unidade_compra: 'kg', unidade_base: 'g', fator_conversao: 1000, estoque_atual: 0, estoque_minimo: 0, custo_por_unidade: 0, ...(p || {}) })
+  Object.assign(form, {
+    id: null,
+    uuid: null,
+    nome: '',
+    tipo: 'insumo',
+    unidade_compra: 'kg',
+    unidade_base: 'g',
+    fator_conversao: 1000,
+    estoque_atual: 0,
+    estoque_minimo: 0,
+    custo_por_unidade: 0,
+    ...(p || {})
+  })
+
+  // 💰 sincroniza máscara
+  custoMask.value = maskMoney(form.custo_por_unidade)
+
   modal.value = 'insumo'
 }
-function abrirCompra(p) { Object.assign(compra, { produto: p, qtd: null, custo: null, obs: '' }); modal.value = 'compra' }
 
+function abrirCompra(p) {
+  Object.assign(compra, {
+    produto: p,
+    qtd: null,
+    custo: null,
+    obs: ''
+  })
+
+  modal.value = 'compra'
+}
+
+/* ────────────────────────────────
+   💾 AÇÕES
+──────────────────────────────── */
 async function salvar() {
   if (!form.nome.trim()) return
+
   saving.value = true
-  try { await s.salvarProduto({ ...form }); modal.value = null } finally { saving.value = false }
-}
-async function excluir() {
-  if (!confirm(`Excluir "${form.nome}"?`)) return
-  await s.excluirProduto(form.id); modal.value = null
-}
-async function salvarCompra() {
-  saving.value = true
-  try { await s.registrarCompra(compra.produto.id, compra.qtd, compra.custo||0, compra.obs); modal.value = null } finally { saving.value = false }
+  try {
+    await s.salvarProduto({ ...form })
+    modal.value = null
+  } finally {
+    saving.value = false
+  }
 }
 
+async function excluir() {
+  if (!confirm(`Excluir "${form.nome}"?`)) return
+
+  await s.excluirProduto(form.uuid)
+  modal.value = null
+}
+
+async function salvarCompra() {
+  saving.value = true
+  try {
+    await s.registrarCompra(
+      compra.produto.id,
+      compra.qtd,
+      compra.custo || 0,
+      compra.obs
+    )
+    modal.value = null
+  } finally {
+    saving.value = false
+  }
+}
+
+/* ────────────────────────────────
+   📋 LISTA DE COMPRAS
+──────────────────────────────── */
 function listaCompras() {
-  if (!s.baixoEstoque.length) { s.notify('Nenhum item com estoque baixo', 'warning'); return }
-  alert('📋 Lista de Compras:\n\n' + s.baixoEstoque.map(p => `• ${p.nome}: ${fmtQ(p.estoque_atual, p.unidade_base)} (mín: ${fmtQ(p.estoque_minimo, p.unidade_base)})`).join('\n'))
+  if (!s.baixoEstoque.length) {
+    s.notify('Nenhum item com estoque baixo', 'warning')
+    return
+  }
+
+  alert(
+    '📋 Lista de Compras:\n\n' +
+    s.baixoEstoque
+      .map(p =>
+        `• ${p.nome}: ${fmtQ(p.estoque_atual, p.unidade_base)} (mín: ${fmtQ(p.estoque_minimo, p.unidade_base)})`
+      )
+      .join('\n')
+  )
 }
 </script>
 

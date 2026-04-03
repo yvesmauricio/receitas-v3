@@ -149,6 +149,7 @@ export const useStore = defineStore('choco', () => {
   }
 
   async function excluirProduto(uuid) {
+    if (!uuid) return console.error("Tentativa de excluir produto sem UUID");
     await db.produtos.delete(uuid)
     produtos.value = produtos.value.filter(p => p.uuid !== uuid)
     notify('Insumo excluído!')
@@ -176,6 +177,7 @@ export const useStore = defineStore('choco', () => {
   }
 
   async function excluirReceita(uuid) {
+    if (!uuid) return console.error("Tentativa de excluir receita sem UUID");
     await db.receitas.delete(uuid)
     receitas.value = receitas.value.filter(r => r.uuid !== uuid)
     notify('Receita excluída!')
@@ -203,6 +205,7 @@ export const useStore = defineStore('choco', () => {
   }
 
   async function estornarProducao(uuid) {
+    if (!uuid) return console.error("Tentativa de estornar produção sem UUID");
     await db.producoes.delete(uuid)
     producoes.value = producoes.value.filter(p => p.uuid !== uuid)
     notify('Produção estornada!')
@@ -215,30 +218,40 @@ export const useStore = defineStore('choco', () => {
   }
 
   // ── CUSTO ────────────────────────────────
-  function getCustoTotal(recipe) {
-    if (!recipe || !recipe.ingredientes) return 0
+function getCustoTotal(recipe, visitados = new Set(), cache = new Map()) {
+  if (!recipe || !recipe.ingredientes) return 0
 
-    return recipe.ingredientes.reduce((acc, ing) => {
+  if (cache.has(recipe.uuid)) return cache.get(recipe.uuid)
 
-      if (ing.tipo === 'receita') {
-        const sub = receitas.value.find(x => x.uuid === ing.id)
-        if (!sub) return acc
+  if (visitados.has(recipe.uuid)) return 0
+  visitados.add(recipe.uuid)
 
-        return acc +
-          (getCustoTotal(sub) / (sub.rendimento || 1)) *
-          (ing.quantidade || 0)
-      }
+  let total = 0
 
+  for (const ing of recipe.ingredientes) {
+    const qtd = Number(ing.quantidade || 0)
+    if (qtd <= 0) continue
+
+    if (ing.tipo === 'receita') {
+      const sub = receitas.value.find(x => x.uuid === ing.id)
+      if (!sub || !sub.rendimento) continue
+
+      const custoSub = getCustoTotal(sub, visitados, cache)
+      total += (custoSub / sub.rendimento) * qtd
+    } else {
       const prod = produtos.value.find(p => p.uuid === ing.id)
-      if (!prod || !prod.fator_conversao) return acc
+      if (!prod || !prod.fator_conversao) continue
 
-      const custoUnitario =
+      const custoUnit =
         (prod.custo_por_unidade || 0) / prod.fator_conversao
 
-      return acc + custoUnitario * (ing.quantidade || 0)
-
-    }, 0)
+      total += custoUnit * qtd
+    }
   }
+
+  cache.set(recipe.uuid, total)
+  return total
+}
 
   return {
     // UI

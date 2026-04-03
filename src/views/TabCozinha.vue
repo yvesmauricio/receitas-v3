@@ -22,7 +22,7 @@
 
     <!-- Grade de Seleção Rápida (Otimizada para toque) -->
     <div class="quick-add-grid">
-      <button v-for="r in receitasFiltradas" :key="r.id" class="qa-btn" @click="adicionarAoLote(r)">
+      <button v-for="r in receitasFiltradas" :key="r.uuid" class="qa-btn" @click="adicionarAoLote(r)">
         <span class="qa-name">{{ r.nome }}</span>
         <span class="qa-un">{{ r.rendimento }} {{ r.unidade_rendimento }}</span>
       </button>
@@ -97,13 +97,13 @@ const receitasFiltradas = computed(() => {
 })
 
 function adicionarAoLote(r) {
-  const existente = lote.value.find(item => item.receita_id === r.id)
+  const existente = lote.value.find(item => item.receita_id === r.uuid)
   if (existente) {
     existente.qtd_produzir += r.rendimento
     existente.peso_total = (existente.qtd_produzir / r.rendimento) * (r.peso_unitario || 0)
   } else {
     lote.value.push({
-      receita_id: r.id,
+      receita_id: r.uuid,
       nome: r.nome,
       qtd_produzir: r.rendimento,
       rendimento_base: r.rendimento,
@@ -131,7 +131,7 @@ const ingredientesAgrupados = computed(() => {
     item.ingredientes.forEach(ing => {
       const key = `${ing.tipo}-${ing.id}`
       if (!mapa[key]) {
-        const alvo = ing.tipo === 'receita' ? s.receitas.find(x => x.id === ing.id) : s.produtos.find(x => x.id === ing.id)
+        const alvo = ing.tipo === 'receita' ? s.receitas.find(x => x.uuid === ing.id) : s.produtos.find(x => x.uuid === ing.id)
         mapa[key] = { 
           id: key, 
           nome: (ing.tipo === 'receita' ? '🥣 ' : '') + (alvo?.nome || 'Item removido'),
