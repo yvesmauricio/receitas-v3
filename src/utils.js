@@ -1,0 +1,47 @@
+export const R$ = (v, compact = false) => {
+  const n = Number(v || 0)
+  if (compact && Math.abs(n) >= 1000) return 'R$ ' + (n / 1000).toFixed(1).replace('.', ',') + 'k'
+  return 'R$ ' + n.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+export const dataBR = (iso) => {
+  if (!iso) return ''
+  const d = iso.slice(0, 10).split('-')
+  return `${d[2]}/${d[1]}/${d[0].slice(2)}`
+}
+
+export const dataHoraBR = (iso) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) +
+    ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
+
+export const horaBR = (iso) => {
+  if (!iso) return ''
+  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
+
+export const fmtQtd = (v, u = '') => {
+  const n = Number(v || 0)
+  return (n % 1 === 0 ? n : n.toFixed(2)) + (u ? ' ' + u : '')
+}
+
+export const normalizar = (s) =>
+  String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+
+export const initials = (nome) => {
+  const p = String(nome || '').trim().split(' ').filter(Boolean)
+  return p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : String(nome || '??').slice(0, 2).toUpperCase()
+}
+
+const CORES = ['#7a4a1e','#0f766e','#1d4ed8','#7c3aed','#c45a09','#1a7a45','#b91c1c']
+export const avatarColor = (nome) => {
+  let h = 0; for (const c of String(nome || '')) h = (h * 31 + c.charCodeAt(0)) & 0xff
+  return CORES[h % CORES.length]
+}
+
+// Data ISO para datetime-local input
+export const nowLocal = () => {
+  const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+}
