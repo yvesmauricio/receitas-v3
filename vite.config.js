@@ -3,11 +3,24 @@ import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  base: '/receitas-v3/', // 👈 ESSENCIAL pro GitHub Pages
+
   plugins: [
     vue(),
+
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'maskable-icon.png'],
+
+      devOptions: {
+        enabled: false
+      },
+
+      includeAssets: [
+        'favicon.ico',
+        'apple-touch-icon.png',
+        'maskable-icon.png'
+      ],
+
       manifest: {
         name: 'ChocoStoq',
         short_name: 'ChocoStoq',
@@ -15,45 +28,74 @@ export default defineConfig({
         theme_color: '#3d2008',
         background_color: '#fdf5e8',
         display: 'standalone',
+        start_url: '/receitas-v3/',
+        scope: '/receitas-v3/',
+
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: 'icon-192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'pwa-512x512.png',
+            src: 'icon-512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
           }
         ]
       },
+
       workbox: {
-        // Precache de todos os assets estáticos do build
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        // Cache de recursos externos (CDNs)
+
+        additionalManifestEntries: [
+          { url: '/receitas-v3/offline.html', revision: null }
+        ],
+
+        navigateFallback: '/receitas-v3/offline.html',        navigateFallbackDenylist: [/^\/assets\//],
+
+        skipWaiting: true,
+        clientsClaim: true,
+
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff,woff2}'],
+
         runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pages',
+              networkTimeoutSeconds: 2
+            }
+          },
           {
             urlPattern: /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/font-awesome\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'font-awesome-assets',
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365
+              },
               cacheableResponse: { statuses: [0, 200] }
             }
           },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'google-fonts-stylesheets' }
+            options: {
+              cacheName: 'google-fonts-stylesheets'
+            }
           },
           {
             urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'google-fonts-webfonts',
-              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              expiration: {
+                maxEntries: 20,
+                maxAgeSeconds: 60 * 60 * 24 * 365
+              },
               cacheableResponse: { statuses: [0, 200] }
             }
           }

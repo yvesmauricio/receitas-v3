@@ -149,7 +149,7 @@
       </div>
       <div class="grid-2">
         <div class="fg"><label class="label label-req">Quantidade</label><input v-model.number="prod.qtd" class="input"
-            type="number" min="0.001" step="0.01" autofocus /></div>
+            type="number" min="0.001" step="0.01"/></div>
         <div class="fg"><label class="label">Unidade</label><input :value="prod.receita?.unidade_rendimento || 'un'"
             class="input input-ro" readonly /></div>
       </div>
@@ -169,8 +169,7 @@
     <BaseModal v-if="modal === 'picker'" title="Selecionar Item" @close="modal = 'receita'">
       <div class="search-wrap">
         <i class="fas fa-search search-icon"></i>
-        <input v-model="pickerSearch" class="search-input" type="search" placeholder="Buscar insumo ou base..."
-          autofocus />
+        <input v-model="pickerSearch" class="search-input" type="search" placeholder="Buscar insumo ou base..."/>
       </div>
       <div class="chips mt-12">
         <button v-for="t in pickerTabs" :key="t.v" class="chip" :class="{ active: pickerTab === t.v }"
