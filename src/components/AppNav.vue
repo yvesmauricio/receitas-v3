@@ -10,7 +10,7 @@
 import { useStore } from '../store.js'
 const s = useStore()
 const nav = [
-  { id: 'insumos',    icon: 'fas fa-box-open',        label: 'Insumos' },
+  { id: 'insumos',    icon: 'fas fa-box-open',        label: 'Ingredientes' },
   { id: 'receitas',   icon: 'fas fa-book-open',        label: 'Receitas' },
   { id: 'producao',   icon: 'fas fa-industry',         label: 'Produção' },
   { id: 'painel',     icon: 'fas fa-chart-pie',       label: 'Painel' }

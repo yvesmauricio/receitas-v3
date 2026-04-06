@@ -6,7 +6,7 @@
       <TabInsumos   v-show="s.tab === 'insumos'" />
       <TabReceitas  v-show="s.tab === 'receitas'" />
       <TabProducao  v-show="s.tab === 'producao'" />
-      <TabPainel  v-show="s.tab === 'painel'" />
+      <TabPainel    v-show="s.tab === 'painel'" />
     </main>
 
     <AppNav />
@@ -19,10 +19,10 @@
 
       <div class="settings-section"><i class="fas fa-database"></i> Backup e Segurança</div>
       <p class="settings-hint">Os dados ficam salvos apenas neste dispositivo. Faça backups regulares.</p>
-      <div class="grid-2">
-        <button class="btn btn-secondary" @click="s.backupGeral()"><i class="fas fa-download"></i> Exportar JSON</button>
-        <label class="btn btn-secondary pointer">
-          <i class="fas fa-upload"></i> Importar JSON
+      <div class="backup-btns">
+        <button class="btn btn-secondary btn-full" @click="s.backupGeral()"><i class="fas fa-download"></i> Exportar Backup JSON</button>
+        <label class="btn btn-secondary btn-full pointer">
+          <i class="fas fa-upload"></i> Importar Backup JSON
           <input type="file" hidden accept=".json" @change="e => s.restaurarGeral(e.target.files[0])" />
         </label>
       </div>
@@ -32,6 +32,9 @@
         <button class="btn btn-primary" @click="salvarConfig">Salvar</button>
       </template>
     </BaseModal>
+
+    <!-- ─── Diálogo de Confirmação Global ────────────────────── -->
+    <ConfirmDialog />
 
     <!-- Toast -->
     <Transition name="fade">
@@ -54,6 +57,7 @@ import { useStore } from './store.js'
 import AppHeader from './components/AppHeader.vue'
 import AppNav from './components/AppNav.vue'
 import BaseModal from './components/BaseModal.vue'
+import ConfirmDialog from './components/ConfirmDialog.vue'
 import TabInsumos from './views/TabInsumos.vue'
 import TabReceitas from './views/TabReceitas.vue'
 import TabProducao from './views/TabProducao.vue'
@@ -61,7 +65,6 @@ import TabPainel from './views/TabPainel.vue'
 
 const s = useStore()
 
-// Settings form — reativos ao store
 const cfg = reactive({ ...s.company })
 
 function salvarConfig() {
@@ -72,7 +75,6 @@ function salvarConfig() {
 
 onMounted(async () => {
   await s.init()
-  // Após o init carregar o IndexedDB, sincronizamos os objetos do formulário
   Object.assign(cfg, s.company)
 })
 </script>
@@ -80,4 +82,6 @@ onMounted(async () => {
 <style scoped>
 .settings-hint { font-size: .75rem; color: var(--muted); margin-bottom: 10px; }
 .pointer { cursor: pointer; }
+.settings-section { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .8px; color: var(--gold-dark); margin: 18px 0 10px; display: flex; align-items: center; gap: 7px; }
+.backup-btns { display: flex; flex-direction: column; gap: 8px; }
 </style>
