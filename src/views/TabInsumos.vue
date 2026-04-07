@@ -13,53 +13,55 @@
       </div>
     </div>
 
-    <div v-if="s.loading" class="loading-box"><div class="spinner spinner-sm"></div></div>
+    <section class="tab-content">
+      <div v-if="s.loading" class="loading-box"><div class="spinner spinner-sm"></div></div>
 
-    <template v-else-if="lista.length">
-      <SwipeRow
-        v-for="p in lista"
-        :key="p.uuid"
-        :row-id="p.uuid"
-        :width="120"
-      >
-        <!-- Conteúdo da linha -->
-        <div class="list-row" @click="abrir(p)">
-          <div class="row-info">
-            <div class="row-name">{{ p.nome }}</div>
-            <div class="row-sub">
-              <span class="badge" :class="tipoBadge(p.tipo)">{{ tipoLabel(p.tipo) }}</span>
-              <span v-if="p.unidade_compra">{{ p.unidade_compra }}</span>
-              <span v-if="p.custo_por_unidade" class="ing-preco">{{ R$(p.custo_por_unidade) }}</span>
+      <template v-else-if="lista.length">
+        <SwipeRow
+          v-for="p in lista"
+          :key="p.uuid"
+          :row-id="p.uuid"
+          :width="120"
+        >
+          <!-- Conteúdo da linha -->
+          <div class="list-row" @click="abrir(p)">
+            <div class="row-info">
+              <div class="row-name">{{ p.nome }}</div>
+              <div class="row-sub">
+                <span class="badge" :class="tipoBadge(p.tipo)">{{ tipoLabel(p.tipo) }}</span>
+                <span v-if="p.unidade_compra">{{ p.unidade_compra }}</span>
+                <span v-if="p.custo_por_unidade" class="ing-preco">{{ R$(p.custo_por_unidade) }}</span>
+              </div>
             </div>
+            <i class="fas fa-chevron-right row-chevron"></i>
           </div>
-          <i class="fas fa-chevron-right row-chevron"></i>
-        </div>
 
-        <!-- Ações de swipe -->
-        <template #actions>
-          <button class="swipe-btn edit" @click="abrir(p)">
-            <i class="fas fa-pencil"></i>
-            <span>Editar</span>
-          </button>
-          <button class="swipe-btn del" @click="excluirDireto(p)">
-            <i class="fas fa-trash"></i>
-            <span>Excluir</span>
-          </button>
-        </template>
-      </SwipeRow>
-    </template>
+          <!-- Ações de swipe -->
+          <template #actions>
+            <button class="swipe-btn edit" @click="abrir(p)">
+              <i class="fas fa-pencil"></i>
+              <span>Editar</span>
+            </button>
+            <button class="swipe-btn del" @click="excluirDireto(p)">
+              <i class="fas fa-trash"></i>
+              <span>Excluir</span>
+            </button>
+          </template>
+        </SwipeRow>
+      </template>
 
-    <div v-else class="empty">
-      <i class="fas fa-box-open"></i>
-      <h3>{{ busca ? 'Nenhum resultado' : 'Nenhum ingrediente ainda' }}</h3>
-      <p>{{ busca ? 'Tente outro termo' : 'Cadastre o primeiro ingrediente' }}</p>
-      <button v-if="!busca" class="btn btn-primary mt-12" @click="abrir(null)">
-        <i class="fas fa-plus"></i> Novo Ingrediente
-      </button>
-    </div>
+      <div v-else class="empty">
+        <i class="fas fa-box-open"></i>
+        <h3>{{ busca ? 'Nenhum resultado' : 'Nenhum ingrediente ainda' }}</h3>
+        <p>{{ busca ? 'Tente outro termo' : 'Cadastre o primeiro ingrediente' }}</p>
+        <button v-if="!busca" class="btn btn-primary mt-12" @click="abrir(null)">
+          <i class="fas fa-plus"></i> Novo Ingrediente
+        </button>
+      </div>
+    </section>
 
     <!-- ─── Modal Ingrediente ──────────────────────────────────── -->
-    <BaseModal v-if="modal === 'insumo'" :title="form.uuid ? 'Editar Ingrediente' : 'Novo Ingrediente'" @close="modal = null">
+    <BaseModal v-if="modal === 'insumo'" :title="form.uuid ? 'Editar Ingrediente' : 'Novo Ingrediente'" @close="fecharModal">
       <div class="fg">
         <label class="label label-req">Nome</label>
         <input v-model="form.nome" class="input" autofocus placeholder="Ex: Chocolate ao Leite" />
@@ -120,7 +122,7 @@
       <template #foot>
         <button v-if="form.uuid" class="btn btn-danger" @click="excluir"><i class="fas fa-trash"></i></button>
         <div class="spacer"></div>
-        <button class="btn btn-secondary" @click="modal = null">Cancelar</button>
+        <button class="btn btn-secondary" @click="fecharModal">Cancelar</button>
         <button class="btn btn-primary" :disabled="!form.nome || saving" @click="salvar">
           <i v-if="saving" class="fas fa-spinner fa-spin"></i>
           <span v-else>{{ form.uuid ? 'Salvar' : 'Criar' }}</span>
@@ -139,6 +141,7 @@ import BaseModal from '../components/BaseModal.vue'
 import SwipeRow from '../components/SwipeRow.vue'
 import { useConfirm } from '../composables/useConfirm.js'
 import { useSwipe } from '../composables/useSwipe.js'
+import { pushOverlayHistory, closeOverlayHistory } from '../composables/overlayHistory.js'
 
 const s = useStore()
 const confirm = useConfirm()
@@ -147,6 +150,7 @@ const { closeAll } = useSwipe()
 const busca  = ref('')
 const modal  = ref(null)
 const saving = ref(false)
+let modalHistoryToken = null
 
 const UNIDADES_COMPRA = ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pct', 'dz']
 
@@ -191,7 +195,18 @@ function abrir(p) {
     custo_por_unidade: 0,
     ...(p || {})
   })
+  modalHistoryToken = pushOverlayHistory(() => {
+    modalHistoryToken = null
+    modal.value = null
+  })
   modal.value = 'insumo'
+}
+
+function fecharModal() {
+  closeOverlayHistory(modalHistoryToken, () => {
+    modalHistoryToken = null
+    modal.value = null
+  })
 }
 
 /* ── Ações ────────────────────────────────────────────────────── */
@@ -200,7 +215,7 @@ async function salvar() {
   saving.value = true
   try {
     await s.salvarProduto({ ...form })
-    modal.value = null
+    fecharModal()
   } finally { saving.value = false }
 }
 
@@ -214,7 +229,7 @@ async function excluir() {
   )
   if (!ok) return
   await s.excluirProduto(form.uuid)
-  modal.value = null
+  fecharModal()
 }
 
 // Excluir direto pelo swipe (sem modal aberto)
@@ -231,6 +246,7 @@ async function excluirDireto(p) {
 
 <style scoped>
 .loading-box { display: flex; justify-content: center; padding: 40px; }
+.tab-content { padding-top: 10px; }
 .mt-12  { margin-top: 12px; }
 .spacer { flex: 1; }
 

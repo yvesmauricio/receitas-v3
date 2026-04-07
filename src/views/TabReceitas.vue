@@ -13,55 +13,57 @@
       </div>
     </div>
 
-    <div v-if="s.loading" class="loading-box"><div class="spinner spinner-sm"></div></div>
+    <section class="tab-content">
+      <div v-if="s.loading" class="loading-box"><div class="spinner spinner-sm"></div></div>
 
-    <template v-else-if="lista.length">
-      <SwipeRow
-        v-for="r in lista"
-        :key="r.uuid"
-        :row-id="r.uuid"
-        :width="120"
-      >
-        <!-- Conteúdo principal -->
-        <div class="list-row" @click="abrir(r)">
-          <div class="row-info">
-            <div class="row-name">{{ r.nome }}</div>
-            <div class="row-sub">
-              <span class="badge" :class="r.eh_intermediaria ? 'badge-blue' : 'badge-gold'">
-                {{ r.eh_intermediaria ? '🥣 Base/Recheio' : '🍫 Produto final' }}
-              </span>
-              <span v-if="r.rendimento">Rende: {{ r.rendimento }} {{ r.unidade_rendimento }}</span>
-              <span v-if="r.preco_sugerido" class="recipe-price">{{ R$(r.preco_sugerido) }}</span>
-              <span v-if="s.getCustoTotal(r)" class="recipe-cost">Custo: {{ R$(s.getCustoTotal(r)) }}</span>
+      <template v-else-if="lista.length">
+        <SwipeRow
+          v-for="r in lista"
+          :key="r.uuid"
+          :row-id="r.uuid"
+          :width="120"
+        >
+          <!-- Conteúdo principal -->
+          <div class="list-row" @click="abrir(r)">
+            <div class="row-info">
+              <div class="row-name">{{ r.nome }}</div>
+              <div class="row-sub">
+                <span class="badge" :class="r.eh_intermediaria ? 'badge-blue' : 'badge-gold'">
+                  {{ r.eh_intermediaria ? '🥣 Base/Recheio' : '🍫 Produto final' }}
+                </span>
+                <span v-if="r.rendimento">Rende: {{ r.rendimento }} {{ r.unidade_rendimento }}</span>
+                <span v-if="r.preco_sugerido" class="recipe-price">{{ R$(r.preco_sugerido) }}</span>
+                <span v-if="s.getCustoTotal(r)" class="recipe-cost">Custo: {{ R$(s.getCustoTotal(r)) }}</span>
+              </div>
             </div>
+            <i class="fas fa-chevron-right row-chevron"></i>
           </div>
-          <i class="fas fa-chevron-right row-chevron"></i>
-        </div>
 
-        <!-- Ações de swipe -->
-        <template #actions>
-          <button class="swipe-btn edit" @click="abrir(r)">
-            <i class="fas fa-pencil"></i>
-            <span>Editar</span>
-          </button>
-          <button class="swipe-btn del" @click="excluirDieto(r)">
-            <i class="fas fa-trash"></i>
-            <span>Excluir</span>
-          </button>
-        </template>
-      </SwipeRow>
-    </template>
+          <!-- Ações de swipe -->
+          <template #actions>
+            <button class="swipe-btn edit" @click="abrir(r)">
+              <i class="fas fa-pencil"></i>
+              <span>Editar</span>
+            </button>
+            <button class="swipe-btn del" @click="excluirDieto(r)">
+              <i class="fas fa-trash"></i>
+              <span>Excluir</span>
+            </button>
+          </template>
+        </SwipeRow>
+      </template>
 
-    <div v-else class="empty">
-      <i class="fas fa-book-open"></i>
-      <h3>{{ busca ? 'Nenhum resultado' : 'Nenhuma receita ainda' }}</h3>
-      <button v-if="!busca" class="btn btn-primary mt-12" @click="abrir(null)">
-        <i class="fas fa-plus"></i> Nova Receita
-      </button>
-    </div>
+      <div v-else class="empty">
+        <i class="fas fa-book-open"></i>
+        <h3>{{ busca ? 'Nenhum resultado' : 'Nenhuma receita ainda' }}</h3>
+        <button v-if="!busca" class="btn btn-primary mt-12" @click="abrir(null)">
+          <i class="fas fa-plus"></i> Nova Receita
+        </button>
+      </div>
+    </section>
 
     <!-- ─── Modal Receita ──────────────────────────────────────── -->
-    <BaseModal v-if="modal === 'receita'" :title="form.uuid ? 'Editar Receita' : 'Nova Receita'" @close="modal = null">
+    <BaseModal v-if="modal === 'receita'" :title="form.uuid ? 'Editar Receita' : 'Nova Receita'" @close="fecharModal">
       <div class="fg">
         <label class="label label-req">Nome</label>
         <input v-model="form.nome" class="input" autofocus placeholder="Ex: Trufa Tradicional" />
@@ -193,7 +195,7 @@
       <template #foot>
         <button v-if="form.uuid" class="btn btn-danger" @click="excluir"><i class="fas fa-trash"></i></button>
         <div class="spacer"></div>
-        <button class="btn btn-secondary" @click="modal = null">Cancelar</button>
+        <button class="btn btn-secondary" @click="fecharModal">Cancelar</button>
         <button class="btn btn-primary" :disabled="!form.nome || saving" @click="salvar">
           <i v-if="saving" class="fas fa-spinner fa-spin"></i>
           <span v-else>{{ form.uuid ? 'Salvar' : 'Criar' }}</span>
@@ -202,7 +204,7 @@
     </BaseModal>
 
     <!-- ─── Modal Picker de Ingredientes ──────────────────────── -->
-    <BaseModal v-if="modal === 'picker'" title="Adicionar Ingrediente" @close="modal = 'receita'">
+    <BaseModal v-if="modal === 'picker'" title="Adicionar Ingrediente" @close="fecharModal">
       <div class="search-wrap mt-8">
         <i class="fas fa-search search-icon"></i>
         <input v-model="pickerSearch" class="search-input" type="search" placeholder="Buscar ou digitar para criar…" autofocus />
@@ -256,6 +258,7 @@ import BaseModal from '../components/BaseModal.vue'
 import SwipeRow from '../components/SwipeRow.vue'
 import { useConfirm } from '../composables/useConfirm.js'
 import { useSwipe } from '../composables/useSwipe.js'
+import { pushOverlayHistory, closeOverlayHistory } from '../composables/overlayHistory.js'
 
 const s = useStore()
 const confirm = useConfirm()
@@ -269,6 +272,7 @@ const pickerSearch = ref('')
 const pickerTab    = ref('todos')
 const pickerIndex  = ref(null)
 const pickerTabs   = [{ v:'todos', l:'Tudo' }, { v:'insumos', l:'📦 Ingredientes' }, { v:'bases', l:'🥣 Bases' }]
+const modalHistory = []
 
 const form = reactive({
   uuid: null, nome: '', categoria: '', eh_intermediaria: 0,
@@ -381,17 +385,37 @@ function addNovoItem() {
   form.ingredientes.push({ _key: Math.random().toString(36).slice(2, 11), id: '', tipo: 'produto', quantidade: null })
   abrirPicker(form.ingredientes.length - 1)
 }
+function abrirModal(next) {
+  const previous = modal.value
+  const token = pushOverlayHistory(() => {
+    modalHistory.pop()
+    modal.value = previous
+  })
+  modalHistory.push({ token, previous })
+  modal.value = next
+}
+function fecharModal() {
+  const current = modalHistory.at(-1)
+  if (!current) {
+    modal.value = null
+    return
+  }
+  closeOverlayHistory(current.token, () => {
+    modalHistory.pop()
+    modal.value = current.previous
+  })
+}
 function abrirPicker(idx) {
   pickerIndex.value = idx
   pickerSearch.value = ''
   pickerTab.value = 'todos'
-  modal.value = 'picker'
+  abrirModal('picker')
 }
 function removerIngrediente(idx) { form.ingredientes.splice(idx, 1) }
 function selecionarItem(item) {
   const ing = form.ingredientes[pickerIndex.value]
   ing.id = item.id; ing.tipo = item.tipo
-  modal.value = 'receita'
+  fecharModal()
 }
 async function criarNovoInsumo() {
   const nome = pickerSearch.value.trim()
@@ -405,7 +429,7 @@ async function criarNovoInsumo() {
   }
   const ing = form.ingredientes[pickerIndex.value]
   ing.id = produto.uuid; ing.tipo = 'produto'
-  modal.value = 'receita'
+  fecharModal()
 }
 
 /* ── Lista ────────────────────────────────────────────────────── */
@@ -430,7 +454,7 @@ function abrir(r) {
     preco_sugerido: r.preco_sugerido, modo_preparo: r.modo_preparo,
     ingredientes: (r.ingredientes || []).map(i => ({ ...i, _key: i.id + Math.random() }))
   })
-  modal.value = 'receita'
+  abrirModal('receita')
 }
 
 /* ── Salvar / Excluir ─────────────────────────────────────────── */
@@ -444,7 +468,7 @@ async function salvar() {
     if (!payload.uuid) payload.uuid = crypto.randomUUID()
     payload.ingredientes = payload.ingredientes.map(({ _key, ...rest }) => rest)
     await s.salvarReceita(payload)
-    modal.value = null
+    fecharModal()
   } finally { saving.value = false }
 }
 
@@ -458,7 +482,7 @@ async function excluir() {
   )
   if (!ok) return
   await s.excluirReceita(form.uuid)
-  modal.value = null
+  fecharModal()
 }
 
 // Excluir direto pelo swipe (sem modal aberto)
@@ -475,6 +499,7 @@ async function excluirDieto(r) {
 
 <style scoped>
 .loading-box { display:flex; justify-content:center; padding:40px; }
+.tab-content { padding-top: 10px; }
 .spacer      { flex:1; }
 .mt-8  { margin-top:8px; }
 .mt-10 { margin-top:10px; }

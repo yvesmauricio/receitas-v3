@@ -1,4 +1,5 @@
 import { reactive } from 'vue'
+import { pushOverlayHistory, closeOverlayHistory } from './overlayHistory.js'
 
 const state = reactive({
   visible: false,
@@ -8,7 +9,8 @@ const state = reactive({
   type: 'danger',          // 'danger' | 'warning' | 'primary'
   confirmLabel: 'Confirmar',
   cancelLabel: 'Cancelar',
-  resolve: null
+  resolve: null,
+  historyToken: null
 })
 
 export function useConfirm() {
@@ -22,13 +24,24 @@ export function useConfirm() {
       state.confirmLabel = opts.confirmLabel || 'Confirmar'
       state.cancelLabel  = opts.cancelLabel  || 'Cancelar'
       state.resolve     = resolve
+      state.historyToken = pushOverlayHistory(() => {
+        state.historyToken = null
+        respond(false, { fromHistory: true })
+      })
     })
   }
 
-  function respond(result) {
+  function respond(result, opts = {}) {
+    const token = state.historyToken
+    state.historyToken = null
     state.visible = false
     const res = state.resolve
     state.resolve = null
+
+    if (token && !opts.fromHistory) {
+      closeOverlayHistory(token)
+    }
+
     if (res) res(result)
   }
 

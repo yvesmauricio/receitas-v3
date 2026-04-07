@@ -12,7 +12,7 @@
     <AppNav />
 
     <!-- ─── Modal Configurações (global) ─────────────────────── -->
-    <BaseModal v-if="s.modal?.id === 'settings'" title="Configurações" @close="s.closeModal()">
+    <BaseModal v-if="s.modal?.id === 'settings'" title="Configurações" @close="closeSettings">
       <div class="settings-section"><i class="fas fa-store"></i> Empresa</div>
       <div class="fg"><label class="label">Nome</label><input v-model="cfg.nome" class="input" /></div>
       <div class="fg"><label class="label">Slogan</label><input v-model="cfg.slogan" class="input" /></div>
@@ -28,7 +28,7 @@
       </div>
 
       <template #foot>
-        <button class="btn btn-secondary" @click="s.closeModal()">Cancelar</button>
+        <button class="btn btn-secondary" @click="closeSettings">Cancelar</button>
         <button class="btn btn-primary" @click="salvarConfig">Salvar</button>
       </template>
     </BaseModal>
@@ -52,7 +52,7 @@
 </template>
 
 <script setup>
-import { reactive, onMounted } from 'vue'
+import { reactive, onMounted, watch } from 'vue'
 import { useStore } from './store.js'
 import AppHeader from './components/AppHeader.vue'
 import AppNav from './components/AppNav.vue'
@@ -62,20 +62,46 @@ import TabInsumos from './views/TabInsumos.vue'
 import TabReceitas from './views/TabReceitas.vue'
 import TabProducao from './views/TabProducao.vue'
 import TabPainel from './views/TabPainel.vue'
+import { pushOverlayHistory, closeOverlayHistory } from './composables/overlayHistory.js'
 
 const s = useStore()
 
 const cfg = reactive({ ...s.company })
+let settingsHistoryToken = null
 
 function salvarConfig() {
   s.saveCompany({ ...cfg })
   s.notify('Configurações salvas!')
-  s.closeModal()
+  closeSettings()
+}
+
+function closeSettings() {
+  if (!s.modal?.id) return
+  closeOverlayHistory(settingsHistoryToken, () => {
+    settingsHistoryToken = null
+    s.closeModal()
+  })
 }
 
 onMounted(async () => {
   await s.init()
   Object.assign(cfg, s.company)
+})
+
+watch(() => s.modal?.id, (next, prev) => {
+  if (next === prev) return
+
+  if (next === 'settings' && !settingsHistoryToken) {
+    settingsHistoryToken = pushOverlayHistory(() => {
+      settingsHistoryToken = null
+      s.closeModal()
+    })
+    return
+  }
+
+  if (prev === 'settings' && next !== 'settings') {
+    settingsHistoryToken = null
+  }
 })
 </script>
 

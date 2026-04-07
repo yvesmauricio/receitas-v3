@@ -80,7 +80,7 @@
     </div>
 
     <!-- ─── Modal Etapa 1: Montagem de Lote ───────────────────── -->
-    <BaseModal v-if="currentModal === 'montagem'" title="Novo Lote" @close="currentModal = null">
+    <BaseModal v-if="currentModal === 'montagem'" title="Novo Lote" @close="fecharModal">
       <div class="cat-filter-wrap">
         <div class="cat-chips">
           <button
@@ -146,15 +146,15 @@
       </div>
 
       <template #foot>
-        <button class="btn btn-secondary" @click="currentModal = null">Cancelar</button>
-        <button class="btn btn-primary" :disabled="!lote.length" @click="currentModal = 'cozinha'">
+        <button class="btn btn-secondary" @click="fecharModal">Cancelar</button>
+        <button class="btn btn-primary" :disabled="!lote.length" @click="abrirModal('cozinha')">
           Cozinha <i class="fas fa-utensils ml-4"></i>
         </button>
       </template>
     </BaseModal>
 
     <!-- ─── Modal Etapa 2: Ficha de Cozinha (Pesagem) ─────────── -->
-    <BaseModal v-if="currentModal === 'cozinha'" title="Lista de Preparo" @close="currentModal = 'montagem'">
+    <BaseModal v-if="currentModal === 'cozinha'" title="Lista de Preparo" @close="fecharModal">
       <div class="pesagem-header">
         <div class="pesagem-stat"><span>Lote:</span> <strong>{{ lote.length }} itens</strong></div>
         <div class="pesagem-stat"><span>Custo Est.:</span> <strong>{{ R$(custoTotalLote) }}</strong></div>
@@ -201,7 +201,7 @@
       </div>
 
       <template #foot>
-        <button class="btn btn-secondary" @click="currentModal = 'montagem'"><i class="fas fa-arrow-left"></i> Voltar</button>
+        <button class="btn btn-secondary" @click="fecharModal"><i class="fas fa-arrow-left"></i> Voltar</button>
         <button class="btn btn-primary" :disabled="saving" @click="confirmarLote">
           <i v-if="saving" class="fas fa-spinner fa-spin"></i>
           <span v-else>Registrar Produção <i class="fas fa-check-double ml-4"></i></span>
@@ -219,6 +219,7 @@ import BaseModal from '../components/BaseModal.vue'
 import SwipeRow from '../components/SwipeRow.vue'
 import { useConfirm } from '../composables/useConfirm.js'
 import { useSwipe } from '../composables/useSwipe.js'
+import { pushOverlayHistory, closeOverlayHistory, collapseOverlayHistory } from '../composables/overlayHistory.js'
 
 const s = useStore()
 const confirm = useConfirm()
@@ -231,6 +232,7 @@ const lote         = ref([])
 const checklist    = reactive({})
 const catAtiva     = ref('Todas')
 const gruposAbertos = ref({})
+const modalHistory = []
 
 const listaCategorias = ['Todas', 'Trufa', 'Cone', 'Barra', 'Brownie', 'Bolo', 'Ovo', 'Base']
 const filtros = [{ v:'hoje', l:'Hoje' }, { v:'7dias', l:'7 dias' }, { v:'30dias', l:'30 dias' }]
@@ -441,6 +443,28 @@ function limpar(n) {
   return String(n || '').replace(/\s*[-–]\s*(base|final|intermediária|intermediaria)\s*$/i, '').replace(/\s*\(.*?\)\s*$/i, '').trim()
 }
 
+function abrirModal(next) {
+  const previous = currentModal.value
+  const token = pushOverlayHistory(() => {
+    modalHistory.pop()
+    currentModal.value = previous
+  })
+  modalHistory.push({ token, previous })
+  currentModal.value = next
+}
+
+function fecharModal() {
+  const current = modalHistory.at(-1)
+  if (!current) {
+    currentModal.value = null
+    return
+  }
+  closeOverlayHistory(current.token, () => {
+    modalHistory.pop()
+    currentModal.value = current.previous
+  })
+}
+
 async function estornar(p) {
   closeAll()
   const nome = limpar(p.nome_receita || p.receita_nome)
@@ -457,7 +481,7 @@ async function estornar(p) {
 function abrirMontagem() {
   lote.value = []
   Object.keys(checklist).forEach(k => delete checklist[k])
-  currentModal.value = 'montagem'
+  abrirModal('montagem')
 }
 
 function getQtdNoLote(id) { return lote.value.find(i => i.receita_id === id)?.qtd_produzir || 0 }
@@ -505,7 +529,10 @@ async function confirmarLote() {
       }
     })
     await s.registrarLoteProducao(itens)
-    currentModal.value = null
+    collapseOverlayHistory(modalHistory.length, () => {
+      modalHistory.length = 0
+      currentModal.value = null
+    })
     s.notify('Lote registrado com sucesso!')
   } finally { saving.value = false }
 }
