@@ -52,7 +52,10 @@ export default defineConfig({
           { url: '/receitas-v3/offline.html', revision: null }
         ],
 
-        navigateFallback: '/receitas-v3/offline.html',        navigateFallbackDenylist: [/^\/assets\//],
+        // Use the SPA shell for navigation requests. Pointing this to
+        // offline.html makes GitHub Pages open the offline screen as the app entry.
+        navigateFallback: '/receitas-v3/index.html',
+        navigateFallbackDenylist: [/^\/assets\//],
 
         skipWaiting: true,
         clientsClaim: true,
