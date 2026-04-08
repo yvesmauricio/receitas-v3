@@ -112,14 +112,6 @@
         <label class="label">Categoria</label>
         <div class="chips-elegant">
           <button
-            type="button"
-            class="choice-pill"
-            :class="{ active: form.categoria === '' }"
-            @click="form.categoria = ''"
-          >
-            Nenhuma
-          </button>
-          <button
             v-for="c in ['Trufa','Cone','Barra','Brownie','Bolo','Ovo','Base']"
             :key="c"
             type="button"
@@ -290,7 +282,7 @@ const pickerTab    = ref('todos')
 const pickerIndex  = ref(null)
 const pickerTabs   = [{ v:'todos', l:'Tudo' }, { v:'insumos', l:'📦 Ingredientes' }, { v:'bases', l:'🥣 Bases' }]
 const modalHistory = []
-const categoriasFiltro = ['Todas', 'Sem categoria', 'Trufa', 'Cone', 'Barra', 'Brownie', 'Bolo', 'Ovo', 'Base']
+const categoriasFiltro = ['Todas', 'Trufa', 'Cone', 'Barra', 'Brownie', 'Bolo', 'Ovo', 'Base']
 
 const form = reactive({
   uuid: null, nome: '', categoria: '', eh_intermediaria: 0,
@@ -468,8 +460,6 @@ const lista = computed(() => {
 
   if (categoriaAtiva.value === 'Base') {
     r = r.filter(x => x.eh_intermediaria || x.categoria === 'Base')
-  } else if (categoriaAtiva.value === 'Sem categoria') {
-    r = r.filter(x => !x.categoria)
   } else if (categoriaAtiva.value !== 'Todas') {
     r = r.filter(x => x.categoria === categoriaAtiva.value)
   }

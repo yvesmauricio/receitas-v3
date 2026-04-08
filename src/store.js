@@ -24,6 +24,7 @@ export const useStore = defineStore('choco', () => {
   const googleDriveConfigured = computed(() => isGoogleDriveBackupConfigured())
 
   const clean = (obj) => JSON.parse(JSON.stringify(obj))
+  const normalizeReceitaCategoria = (categoria) => categoria === 'Nenhuma' ? '' : categoria
 
   // ── Computados ────────────────────────────
   const baixoEstoque = computed(() =>
@@ -62,9 +63,19 @@ export const useStore = defineStore('choco', () => {
         configGet('company')
       ])
       produtos.value  = p
-      receitas.value  = r
+      receitas.value  = r.map(receita => ({
+        ...receita,
+        categoria: normalizeReceitaCategoria(receita.categoria)
+      }))
       producoes.value = pr
       if (cfg) company.value = cfg
+
+      const receitasLegadas = r.filter(receita => receita.categoria === 'Nenhuma')
+      if (receitasLegadas.length) {
+        await Promise.all(receitasLegadas.map(receita =>
+          db.receitas.put({ ...receita, categoria: '' })
+        ))
+      }
     } finally {
       loading.value = false
     }
@@ -173,6 +184,7 @@ export const useStore = defineStore('choco', () => {
   async function salvarReceita(dados) {
     const obj = clean(dados)
     obj.uuid = obj.uuid || crypto.randomUUID()
+    obj.categoria = normalizeReceitaCategoria(obj.categoria)
     await db.receitas.put(obj)
     const i = receitas.value.findIndex(r => r.uuid === obj.uuid)
     if (i >= 0) {
