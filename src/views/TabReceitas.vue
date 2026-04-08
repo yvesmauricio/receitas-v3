@@ -184,15 +184,15 @@
         <div class="ing-qtd-group">
           <input v-model.number="ing.quantidade" class="input ing-qtd-input" type="number" inputmode="decimal" min="0" step="0.001" placeholder="0" />
           <span class="ing-unidade">{{ getUnidade(ing) }}</span>
-          <div class="ing-cost">{{ R$(getCustoComposicao(ing)) }}</div>
         </div>
-        <button class="btn-icon danger ing-del" @click="removerIngrediente(i)">
-          <i class="fas fa-trash"></i>
-        </button>
+        <button class="ing-del" type="button" aria-label="Remover ingrediente" @click="removerIngrediente(i)">x</button>
       </div>
 
       <button class="btn btn-secondary btn-full ing-add-btn" @click="addNovoItem">
         <i class="fas fa-plus"></i> Ingrediente
+      </button>
+      <button v-if="form.ingredientes.length" class="btn btn-secondary btn-full ing-details-btn" @click="abrirModal('ingredientes-detalhes')">
+        <i class="fas fa-list-ul"></i> Ver detalhes dos ingredientes
       </button>
 
       <div class="fg mt-16">
@@ -255,11 +255,33 @@
         </div>
       </div>
     </BaseModal>
+
+    <BaseModal v-if="modal === 'ingredientes-detalhes'" title="Detalhes dos Ingredientes" @close="fecharModal">
+      <div v-if="detalhesIngredientes.length" class="details-list">
+        <div v-for="item in detalhesIngredientes" :key="item.key" class="details-row">
+          <div class="details-main">
+            <div class="details-name">{{ item.nome }}</div>
+            <div class="details-sub">{{ item.quantidade }}</div>
+          </div>
+          <div class="details-value">{{ item.custo }}</div>
+        </div>
+      </div>
+      <div v-else class="picker-vazio">Nenhum ingrediente adicionado</div>
+
+      <div v-if="detalhesIngredientes.length" class="details-total">
+        <span>Total</span>
+        <strong>{{ R$(s.getCustoTotal(form)) }}</strong>
+      </div>
+
+      <template #foot>
+        <button class="btn btn-secondary" @click="fecharModal">Fechar</button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, computed, reactive, watch, nextTick } from 'vue'
 import { useStore } from '../store.js'
 import { R$, normalizar, nowLocal, maskMoney, parseMoney } from '../utils.js'
 import BaseModal from '../components/BaseModal.vue'
@@ -283,6 +305,8 @@ const pickerIndex  = ref(null)
 const pickerTabs   = [{ v:'todos', l:'Tudo' }, { v:'insumos', l:'📦 Ingredientes' }, { v:'bases', l:'🥣 Bases' }]
 const modalHistory = []
 const categoriasFiltro = ['Todas', 'Trufa', 'Cone', 'Barra', 'Brownie', 'Bolo', 'Ovo', 'Base']
+let receitaScrollTop = 0
+let restoreReceitaScroll = false
 
 const form = reactive({
   uuid: null, nome: '', categoria: '', eh_intermediaria: 0,
@@ -313,6 +337,17 @@ const podeCriarNovo = computed(() => {
   const q = normalizar(nome)
   return !s.produtos.some(p => normalizar(p.nome) === q) && !s.receitas.some(r => normalizar(r.nome) === q)
 })
+
+const detalhesIngredientes = computed(() =>
+  form.ingredientes
+    .filter(ing => ing?.id)
+    .map(ing => ({
+      key: ing._key,
+      nome: getNomeIng(ing) || 'Item removido',
+      quantidade: `${Number(ing.quantidade || 0)} ${getUnidade(ing)}`,
+      custo: R$(getCustoComposicao(ing))
+    }))
+)
 
 /* ── Custo / Peso ─────────────────────────────────────────────── */
 const totalIngredientesG = computed(() => {
@@ -428,6 +463,8 @@ function fecharModal() {
   })
 }
 function abrirPicker(idx) {
+  receitaScrollTop = getModalBody()?.scrollTop || 0
+  restoreReceitaScroll = true
   pickerIndex.value = idx
   pickerSearch.value = ''
   pickerTab.value = 'todos'
@@ -438,6 +475,7 @@ function selecionarItem(item) {
   const ing = form.ingredientes[pickerIndex.value]
   ing.id = item.id; ing.tipo = item.tipo
   fecharModal()
+  restoreScrollReceita()
 }
 async function criarNovoInsumo() {
   const nome = pickerSearch.value.trim()
@@ -452,6 +490,22 @@ async function criarNovoInsumo() {
   const ing = form.ingredientes[pickerIndex.value]
   ing.id = produto.uuid; ing.tipo = 'produto'
   fecharModal()
+  restoreScrollReceita()
+}
+
+function getModalBody() {
+  return document.querySelector('.modal-body')
+}
+
+function restoreScrollReceita() {
+  if (!restoreReceitaScroll) return
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      const body = getModalBody()
+      if (body) body.scrollTop = receitaScrollTop
+      restoreReceitaScroll = false
+    })
+  })
 }
 
 /* ── Lista ────────────────────────────────────────────────────── */
@@ -537,18 +591,18 @@ async function excluirDieto(r) {
 
 .row-chevron { color: var(--border2); font-size: 0.75rem; flex-shrink: 0; margin-left: 4px; }
 .recipe-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
+  font-size: .95rem;
   flex-shrink: 0;
 }
 .recipe-price { color:var(--green); font-weight:700; font-family:var(--mono); }
 .recipe-dot   { color: var(--border2); }
-.recipe-profit { font-size:.78rem; color:var(--brown-mid); font-weight:700; }
+.recipe-profit { font-size:.75rem; color:var(--brown-mid); font-weight:700; }
 .recipe-profit.negative { color: var(--red); }
 .recipe-type-tag { margin-left: auto; flex-shrink: 0; }
 .cat-filter-wrap { margin: -4px -16px 0; padding: 6px 0 0; background: var(--surface); }
@@ -592,21 +646,42 @@ async function excluirDieto(r) {
 .ing-empty { background:var(--cream); border:1px dashed var(--border2); border-radius:var(--r-md); padding:12px 14px; font-size:.85rem; color:var(--muted); line-height:1.6; margin-bottom:10px; }
 .ing-empty i { color:var(--brown-light); margin-right:4px; }
 
-.ingredient-row { display:flex; align-items:center; gap:6px; margin-bottom:8px; }
-.ing-select-btn { flex:1; min-width:0; display:flex; align-items:center; gap:6px; padding:9px 10px; border-radius:var(--r-sm); border:1.5px solid var(--border); background:var(--surface); text-align:left; }
+.ingredient-row { display:grid; grid-template-columns:minmax(0, 1fr) auto auto auto; gap:6px; margin-bottom:10px; align-items:center; }
+.ing-select-btn { min-width:0; display:flex; align-items:center; gap:6px; padding:10px; border-radius:var(--r-sm); border:1.5px solid var(--border); background:var(--surface); text-align:left; }
 .ing-select-btn:active { transform:scale(.98); }
 .ing-select-btn.is-insumo { border-color:var(--border2); }
 .ing-select-btn.is-base   { border-color:#93c5fd; background:#eff6ff; }
 .ing-badge   { font-size:1rem; flex-shrink:0; }
 .ing-nome    { flex:1; font-size:.85rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
 .ing-chevron { font-size:.7rem; color:var(--muted); flex-shrink:0; }
-.ing-qtd-group { display:flex; align-items:center; gap:3px; flex-shrink:0; }
-.ing-qtd-input { width:68px; padding:9px 8px; text-align:right; font-size:.9rem; }
-.ing-unidade { font-size:.75rem; color:var(--muted); min-width:20px; }
-.ing-cost    { font-size:.85rem; font-weight:700; color:var(--brown); min-width:60px; text-align:right; flex-shrink:0; }
-.ing-del     { flex-shrink:0; }
+.ing-qtd-group { display:flex; align-items:center; gap:2px; min-width:0; flex-shrink:0; }
+.ing-qtd-input { width:50px; padding:9px 6px; text-align:right; font-size:.9rem; }
+.ing-unidade { font-size:.75rem; color:var(--muted); min-width:12px; }
+.ing-del {
+  flex-shrink:0;
+  width:24px;
+  height:24px;
+  border:none;
+  border-radius:999px;
+  background:#fef2f2;
+  color:#dc2626;
+  font-size:.95rem;
+  font-weight:700;
+  line-height:1;
+  padding:0;
+}
+.ing-del:active { background:#fee2e2; transform:scale(.96); }
 .ing-add-btn { margin-top:6px; }
+.ing-details-btn { margin-top:8px; }
 .textarea-v  { resize:vertical; }
+
+.details-list { display:flex; flex-direction:column; gap:8px; }
+.details-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface); }
+.details-main { min-width:0; }
+.details-name { font-size:.9rem; font-weight:700; color:var(--text); }
+.details-sub { font-size:.78rem; color:var(--muted); margin-top:3px; }
+.details-value { font-size:.86rem; font-weight:800; color:var(--brown); white-space:nowrap; }
+.details-total { display:flex; align-items:center; justify-content:space-between; margin-top:14px; padding:12px 14px; border-radius:var(--r-sm); background:var(--cream); border:1px solid var(--border); font-size:.9rem; color:var(--brown-dark); }
 
 .picker-list { display:flex; flex-direction:column; gap:2px; }
 .picker-grupo-label { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); padding:12px 4px 6px; }

@@ -14,15 +14,11 @@ function isBrowser() {
 }
 
 function ensureConfigured() {
-  if (!GOOGLE_CLIENT_ID) {
-    throw new Error('Google Drive nao configurado')
-  }
+  if (!GOOGLE_CLIENT_ID) throw new Error('Google Drive nao configurado')
 }
 
 function ensureBrowserSupport() {
-  if (!isBrowser()) {
-    throw new Error('Google Drive indisponivel neste ambiente')
-  }
+  if (!isBrowser()) throw new Error('Google Drive indisponivel neste ambiente')
 }
 
 function loadGoogleIdentityScript() {
@@ -33,16 +29,16 @@ function loadGoogleIdentityScript() {
   scriptPromise = new Promise((resolve, reject) => {
     const existing = document.querySelector(`script[src="${GOOGLE_IDENTITY_SCRIPT}"]`)
     if (existing) {
-      existing.addEventListener('load', () => resolve(), { once: true })
+      if (window.google?.accounts?.oauth2) { resolve(); return }
+      existing.addEventListener('load',  () => resolve(), { once: true })
       existing.addEventListener('error', () => reject(new Error('Falha ao carregar Google Identity Services')), { once: true })
       return
     }
-
     const script = document.createElement('script')
     script.src = GOOGLE_IDENTITY_SCRIPT
     script.async = true
     script.defer = true
-    script.onload = () => resolve()
+    script.onload  = () => resolve()
     script.onerror = () => reject(new Error('Falha ao carregar Google Identity Services'))
     document.head.appendChild(script)
   })
@@ -50,7 +46,14 @@ function loadGoogleIdentityScript() {
   return scriptPromise
 }
 
-async function getToken({ prompt = 'consent' } = {}) {
+/**
+ * Solicita (ou reutiliza) token OAuth2.
+ * No mobile (Samsung A22 / Chrome) o popup pode ser bloqueado
+ * se o token expirou mas o prompt estiver vazio.
+ * Usamos 'select_account' como fallback seguro ao invés de 'consent'
+ * para não forçar re-autorização desnecessária.
+ */
+async function getToken({ prompt = 'select_account' } = {}) {
   ensureConfigured()
   await loadGoogleIdentityScript()
 
@@ -63,8 +66,13 @@ async function getToken({ prompt = 'consent' } = {}) {
   }
 
   return new Promise((resolve, reject) => {
+    // Timeout de segurança: se o popup não responder em 2 min, falha graciosamente
+    const timeout = setTimeout(() => reject(new Error('Autenticacao cancelada ou nao respondeu')), 120_000)
+
     tokenClient.callback = (response) => {
+      clearTimeout(timeout)
       if (response?.error) {
+        // access_denied = usuario cancelou, não re-tentar
         reject(new Error(response.error))
         return
       }
@@ -74,16 +82,22 @@ async function getToken({ prompt = 'consent' } = {}) {
 
     try {
       tokenClient.requestAccessToken({
+        // Se já temos token, tentamos sem prompt (silencioso)
+        // Caso falhe (401), driveFetch vai pedir um novo com prompt
         prompt: accessToken ? '' : prompt
       })
-    } catch {
+    } catch (e) {
+      clearTimeout(timeout)
       reject(new Error('Nao foi possivel autenticar no Google'))
     }
   })
 }
 
 async function driveFetch(url, options = {}, retry = true) {
-  const token = accessToken || await getToken({ prompt: '' }).catch(() => getToken({ prompt: 'consent' }))
+  // Se não temos token, pede com prompt visível
+  const token = accessToken
+    || await getToken({ prompt: 'select_account' })
+
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -92,9 +106,10 @@ async function driveFetch(url, options = {}, retry = true) {
     }
   })
 
+  // Token expirado: descarta e pede novo
   if (response.status === 401 && retry) {
     accessToken = null
-    await getToken({ prompt: 'consent' })
+    await getToken({ prompt: 'select_account' })
     return driveFetch(url, options, false)
   }
 
@@ -116,7 +131,6 @@ function createMultipartBody(metadata, content) {
     'Content-Type: application/json\r\n\r\n' +
     `${content}\r\n` +
     `--${boundary}--`
-
   return { boundary, body }
 }
 
@@ -149,17 +163,17 @@ export async function salvarBackupNoDrive(backup) {
   const existingFile = await findBackupFile()
   const metadata = {
     name: DRIVE_FILE_NAME,
-    parents: ['appDataFolder'],
     mimeType: 'application/json',
-    appProperties: {
-      [DRIVE_APP_PROPERTY_KEY]: DRIVE_APP_PROPERTY_VALUE
-    }
+    appProperties: { [DRIVE_APP_PROPERTY_KEY]: DRIVE_APP_PROPERTY_VALUE }
   }
+  if (!existingFile) metadata.parents = ['appDataFolder']
+
   const content = JSON.stringify({
     version: 1,
     updatedAt: new Date().toISOString(),
     backup
   })
+
   const { boundary, body } = createMultipartBody(metadata, content)
   const endpoint = existingFile
     ? `https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=multipart`
@@ -168,9 +182,7 @@ export async function salvarBackupNoDrive(backup) {
 
   await driveFetch(endpoint, {
     method,
-    headers: {
-      'Content-Type': `multipart/related; boundary=${boundary}`
-    },
+    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
     body
   })
 }
@@ -178,11 +190,11 @@ export async function salvarBackupNoDrive(backup) {
 export async function restaurarBackupDoDrive() {
   ensureConfigured()
   const file = await findBackupFile()
-  if (!file) {
-    throw new Error('Nenhum backup encontrado no Google Drive')
-  }
+  if (!file) throw new Error('Nenhum backup encontrado no Google Drive')
 
-  const response = await driveFetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`)
+  const response = await driveFetch(
+    `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`
+  )
   const data = await response.json()
   return data?.backup || data
 }

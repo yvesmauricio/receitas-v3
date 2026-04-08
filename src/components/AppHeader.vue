@@ -1,8 +1,8 @@
 <template>
   <header class="hdr">
     <div class="hdr-logo">
-      <span class="logo-emoji">🍫</span>
-      <div>
+      <div class="hdr-logo-icon">🍫</div>
+      <div class="hdr-text">
         <div class="hdr-name">{{ s.company.nome }}</div>
         <div class="hdr-slogan">{{ s.company.slogan }}</div>
       </div>
@@ -16,12 +16,8 @@
     </div>
   </header>
 </template>
+
 <script setup>
 import { useStore } from '../store.js'
 const s = useStore()
 </script>
-
-<style scoped>
-.logo-emoji { font-size: 1.5rem; }
-.hdr-right { display: flex; align-items: center; gap: 8px; }
-</style>
