@@ -25,20 +25,26 @@
               </div>
             </div>
             <div class="production-card-side">
-              <span class="production-card-badges">
-                <span v-if="grupo.temFinal" class="badge badge-gold">Produto final</span>
-                <span v-if="grupo.temBase" class="badge badge-blue">Base/Recheio</span>
-              </span>
+              <div class="production-card-meta">
+                <span class="production-card-badges">
+                  <span v-if="grupo.temFinal" class="badge badge-gold">Produto final</span>
+                  <span v-if="grupo.temBase" class="badge badge-blue">Base/Recheio</span>
+                </span>
+                <button
+                  class="production-card-kitchen"
+                  type="button"
+                  title="Abrir lista de preparo"
+                  aria-label="Abrir lista de preparo"
+                  @click.stop="abrirCozinhaHistorica(grupo)"
+                >
+                  <i class="fas fa-utensils"></i>
+                </button>
+              </div>
               <i class="fas fa-chevron-down production-card-chevron" :class="{ open: isGrupoAberto(grupo.id) }"></i>
             </div>
           </button>
 
           <div v-if="isGrupoAberto(grupo.id)" class="production-card-body">
-            <div class="production-card-tools">
-              <button class="btn-sec-sm" @click="abrirCozinhaHistorica(grupo)">
-                <i class="fas fa-clipboard-list"></i> Lista de preparo
-              </button>
-            </div>
             <SwipeRow
               v-for="p in grupo.itens"
               :key="p.uuid || p.id"
@@ -700,12 +706,25 @@ onMounted(() => setFiltro('7dias'))
 .production-groups { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px 0; }
 .production-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow-sm); }
 .production-card-head { width: 100%; border: none; background: linear-gradient(180deg, #fff 0%, #fdfaf5 100%); padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; }
-.production-card-tools { display: flex; justify-content: flex-end; padding: 10px 12px 0; }
 .production-card-main { min-width: 0; }
 .production-card-title { font-size: 0.92rem; font-weight: 800; color: var(--brown-dark); }
 .production-card-sub { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; font-size: 0.76rem; color: var(--muted); }
 .production-card-side { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.production-card-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
 .production-card-badges { display: flex; gap: 4px; }
+.production-card-kitchen {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #e8d9c4;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #fffdf9 0%, #f7efe2 100%);
+  color: var(--brown);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(61,32,8,.08);
+}
+.production-card-kitchen:active { transform: scale(.96); }
 .production-card-chevron { color: var(--muted); transition: transform var(--t); }
 .production-card-chevron.open { transform: rotate(180deg); }
 .production-card-body { border-top: 1px solid var(--border); }
