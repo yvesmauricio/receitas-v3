@@ -76,62 +76,54 @@
     </section>
 
     <!-- ─── Modal Ingrediente ──────────────────────────────────── -->
-    <BaseModal v-if="modal === 'insumo'" :title="form.uuid ? 'Editar Ingrediente' : 'Novo Ingrediente'" @close="fecharModal">
-      <div class="fg">
-        <label class="label label-req">Nome</label>
-        <input v-model="form.nome" class="input" autofocus placeholder="Ex: Chocolate ao Leite" />
-      </div>
-      <div class="fg">
-        <label class="label">Categoria</label>
-        <div class="chips-elegant chips-elegant-2">
-          <button type="button" class="choice-pill" :class="{ active: form.tipo === 'insumo' }" @click="form.tipo = 'insumo'">Ingrediente</button>
-          <button type="button" class="choice-pill" :class="{ active: form.tipo === 'base' }" @click="form.tipo = 'base'">Base/Recheio</button>
-          <button type="button" class="choice-pill" :class="{ active: form.tipo === 'final' }" @click="form.tipo = 'final'">Produto final</button>
-          <button type="button" class="choice-pill" :class="{ active: form.tipo === 'embalagem' }" @click="form.tipo = 'embalagem'">Embalagem</button>
+    <BaseModal v-if="modal === 'insumo'" fullscreen :title="form.uuid ? 'Editar Ingrediente' : 'Novo Ingrediente'" @close="fecharModal">
+      <div class="form-section">
+        <div class="form-section-title">1. Identificacao</div>
+        <div class="fg">
+          <label class="label label-req">Nome do ingrediente</label>
+          <input v-model="form.nome" class="input" autofocus placeholder="Ex: Chocolate ao Leite" />
+        </div>
+        <div class="fg">
+          <label class="label">Tipo</label>
+          <select v-model="form.tipo" class="input">
+            <option v-for="tipo in TIPOS_INSUMO" :key="tipo.value" :value="tipo.value">{{ tipo.label }}</option>
+          </select>
         </div>
       </div>
-      <div class="unit-section">
-        <div class="fg">
-          <label class="label">Unidade de compra</label>
-          <div class="chips-elegant chips-elegant-4">
-            <button
-              v-for="u in UNIDADES_COMPRA"
-              :key="u"
-              type="button"
-              class="choice-pill choice-pill-unit"
-              :class="{ active: form.unidade_compra === u }"
-              @click="form.unidade_compra = u"
-            >
-              {{ u }}
-            </button>
+
+      <div class="form-section">
+        <div class="form-section-title">2. Medidas e custo</div>
+        <div class="unit-section">
+          <div class="fg">
+            <label class="label">Unidade de compra</label>
+            <select v-model="form.unidade_compra" class="input">
+              <option v-for="u in UNIDADES_COMPRA" :key="u" :value="u">{{ u }}</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="label">Unidade de uso</label>
+            <select v-model="form.unidade_base" class="input">
+              <option v-for="u in UNIDADES_BASE" :key="u" :value="u">{{ u }}</option>
+            </select>
           </div>
         </div>
         <div class="fg">
-          <label class="label">Unidade usada na receita</label>
-          <div class="chips-elegant chips-elegant-4">
-            <button type="button" class="choice-pill choice-pill-unit" :class="{ active: form.unidade_base === 'g' }" @click="form.unidade_base = 'g'">g</button>
-            <button type="button" class="choice-pill choice-pill-unit" :class="{ active: form.unidade_base === 'ml' }" @click="form.unidade_base = 'ml'">ml</button>
-            <button type="button" class="choice-pill choice-pill-unit" :class="{ active: form.unidade_base === 'un' }" @click="form.unidade_base = 'un'">un</button>
-            <button type="button" class="choice-pill choice-pill-unit" :class="{ active: form.unidade_base === 'kg' }" @click="form.unidade_base = 'kg'">kg</button>
-          </div>
+          <label class="label">Quantidade na embalagem</label>
+          <input v-model.number="form.fator_conversao" class="input" type="number" min="0" step="0.001" placeholder="Ex: 1000" />
+          <div class="hint">Quanto vem na unidade comprada. Ex.: 1 kg = 1000 g.</div>
         </div>
-      </div>
-      <div class="fg">
-        <label class="label">Quantidade da Embalagem</label>
-        <input v-model.number="form.fator_conversao" class="input" type="number" min="0" step="0.001" placeholder="Ex: 1000" />
-        <div class="hint">Quanto vem na unidade comprada. Ex.: 1 kg = 1000 g.</div>
-      </div>
-      <div class="fg">
-        <label class="label">Preço de Compra (R$)</label>
-        <input
-          :value="maskMoney(form.custo_por_unidade)"
-          @input="e => form.custo_por_unidade = parseMoney(e.target.value)"
-          inputmode="numeric" class="input" placeholder="0,00"
-        />
-      </div>
-      <div class="fg">
-        <label class="label">Custo por unidade usada</label>
-        <input :value="custoPorBase" class="input input-ro" readonly />
+        <div class="fg">
+          <label class="label">Preco pago</label>
+          <input
+            :value="maskMoney(form.custo_por_unidade)"
+            @input="e => form.custo_por_unidade = parseMoney(e.target.value)"
+            inputmode="numeric" class="input" placeholder="0,00"
+          />
+        </div>
+        <div class="fg">
+          <label class="label">Custo por unidade usada</label>
+          <input :value="custoPorBase" class="input input-ro" readonly />
+        </div>
       </div>
 
       <template #foot>
@@ -168,8 +160,13 @@ const saving = ref(false)
 const categoriaAtiva = ref('Todas')
 let modalHistoryToken = null
 
-const UNIDADES_COMPRA = ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pct', 'dz']
-const categoriasFiltro = ['Todas', 'Ingrediente', 'Base/Recheio', 'Produto final', 'Embalagem']
+const UNIDADES_COMPRA = ['Kg', 'g', 'Un', 'Pote', 'Garrafa', 'Lata', 'Pacote', 'Caixa', 'Barra', 'Saco']
+const UNIDADES_BASE = ['g', 'ml', 'un', 'kg']
+const TIPOS_INSUMO = [
+  { value: 'insumo', label: 'Ingrediente' },
+  { value: 'embalagem', label: 'Embalagem' }
+]
+const categoriasFiltro = ['Todas', 'Ingrediente', 'Embalagem']
 
 /* ── Lista ────────────────────────────────────────────────────── */
 const lista = computed(() => {
@@ -281,6 +278,11 @@ async function excluirDireto(p) {
 </script>
 
 <style scoped>
+:deep(.modal-body) { --modal-pad-y: 12px; --modal-pad-x: 14px; padding: var(--modal-pad-y) var(--modal-pad-x); }
+:deep(.modal-foot) { padding: 10px 14px calc(12px + env(safe-area-inset-bottom)); }
+:deep(.input),
+:deep(select.input) { padding: 9px 10px; min-height: 40px; }
+
 .loading-box { display: flex; justify-content: center; padding: 40px; }
 .tab-content { padding-top: 10px; }
 .mt-12  { margin-top: 12px; }
@@ -328,8 +330,10 @@ async function excluirDireto(p) {
 .swipe-btn.del  { background: #dc2626; }
 .swipe-btn:active { filter: brightness(0.88); }
 
+.form-section { display:flex; flex-direction:column; gap:10px; padding:10px 11px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface); margin-bottom:10px; }
+.form-section-title { font-size:.78rem; font-weight:800; text-transform:uppercase; letter-spacing:.6px; color:var(--gold-dark); }
 .hint { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
-.unit-section { display:flex; flex-direction:column; gap:14px; }
+.unit-section { display:flex; flex-direction:column; gap:10px; }
 .chips-elegant {
   display:grid;
   gap:8px;
@@ -356,13 +360,6 @@ async function excluirDireto(p) {
   border-color:#5f3412;
   color:#fff;
   box-shadow:0 8px 16px rgba(61,32,8,.16);
-}
-.choice-pill-unit {
-  min-height:42px;
-  padding:9px 8px;
-  border-radius:14px;
-  font-size:.82rem;
-  text-transform:lowercase;
 }
 @media (max-width: 380px) {
   .chips-elegant-4 { grid-template-columns:repeat(3, minmax(0, 1fr)); }

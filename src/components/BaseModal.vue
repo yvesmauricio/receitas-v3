@@ -1,8 +1,8 @@
 <template>
   <Teleport to="body">
-    <div class="modal-bg" :class="{ center }" @click.self="!persistent && emit('close')">
-      <div class="modal-box">
-        <div v-if="!center" class="modal-handle"></div>
+    <div class="modal-bg" :class="{ center, fullscreen }" @click.self="!persistent && emit('close')">
+      <div class="modal-box" :class="{ fullscreen }">
+        <div v-if="!center && !fullscreen" class="modal-handle"></div>
         <div class="modal-hdr">
           <span class="modal-title"><slot name="title">{{ title }}</slot></span>
           <button class="modal-x" @click="emit('close')"><i class="fas fa-times"></i></button>
@@ -15,6 +15,14 @@
 </template>
 
 <script setup>
-defineProps({ title: String, center: Boolean, persistent: Boolean })
+defineProps({
+  title: String,
+  center: Boolean,
+  persistent: Boolean,
+  fullscreen: {
+    type: Boolean,
+    default: true
+  }
+})
 const emit = defineEmits(['close'])
 </script>

@@ -769,4 +769,9 @@ async function excluirDieto(r) {
   color:#fff;
   box-shadow:0 8px 16px rgba(61,32,8,.16);
 }
+.row-sub {
+  margin-top: 1px;
+  gap: 2px;
+}
+
 </style>

@@ -79,7 +79,7 @@
 
     <!-- ─── Modal Etapa 1: Montagem de Lote ───────────────────── -->
     <BaseModal v-if="currentModal === 'montagem'" title="Novo Lote" @close="fecharModal">
-      <div class="cat-filter-wrap">
+      <div class="cat-filter-wrap modal-sticky-head">
         <div class="cat-chips">
           <button v-for="c in listaCategorias" :key="c" class="cat-chip" :class="{ active: catAtiva === c }"
             @click="catAtiva = c">{{ c }}</button>
@@ -719,7 +719,7 @@ onMounted(() => setFiltro('7dias'))
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 10px 12px 0;
+  padding: 10px 0;
 }
 
 .production-card {
@@ -734,7 +734,7 @@ onMounted(() => setFiltro('7dias'))
   width: 100%;
   border: none;
   background: linear-gradient(180deg, #fff 0%, #fdfaf5 100%);
-  padding: 12px 14px;
+  padding: 13px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -747,7 +747,7 @@ onMounted(() => setFiltro('7dias'))
 }
 
 .production-card-title {
-  font-size: 0.92rem;
+  font-size: 0.96rem;
   font-weight: 800;
   color: var(--brown-dark);
 }
@@ -756,8 +756,8 @@ onMounted(() => setFiltro('7dias'))
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 4px;
-  font-size: 0.76rem;
+  margin-top: 3px;
+  font-size: 0.78rem;
   color: var(--muted);
 }
 
@@ -796,6 +796,8 @@ onMounted(() => setFiltro('7dias'))
 
 .production-card-body {
   border-top: 1px solid var(--border);
+  background: linear-gradient(180deg, #fff 0%, #fdfbf7 100%);
+  padding: 14px 1px;
 }
 
 .history-note {
@@ -878,13 +880,7 @@ onMounted(() => setFiltro('7dias'))
 
 /* Estilos Lote */
 .cat-filter-wrap {
-  margin: -10px -16px 12px;
   padding: 10px 0;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 10;
 }
 
 .cat-chips {
@@ -927,10 +923,10 @@ onMounted(() => setFiltro('7dias'))
   background: linear-gradient(180deg, #fff 0%, #fdfbf7 100%);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 164px;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 172px;
+  gap: 12px;
   align-items: center;
   box-shadow: var(--shadow-sm);
 }
@@ -947,7 +943,7 @@ onMounted(() => setFiltro('7dias'))
 
 .plan-name {
   font-weight: 800;
-  font-size: 0.94rem;
+  font-size: 0.96rem;
   color: var(--brown-dark);
   line-height: 1.2;
 }
@@ -961,7 +957,7 @@ onMounted(() => setFiltro('7dias'))
 }
 
 .plan-sub {
-  font-size: 0.74rem;
+  font-size: 0.78rem;
   color: var(--muted);
   display: flex;
   flex-wrap: wrap;
@@ -1087,7 +1083,7 @@ onMounted(() => setFiltro('7dias'))
 }
 
 .sheet-card {
-  background: #fff;
+  background: linear-gradient(180deg, #fff 0%, #fdfbf7 100%);
   border-radius: var(--r-lg);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
@@ -1095,7 +1091,7 @@ onMounted(() => setFiltro('7dias'))
 }
 
 .sheet-body {
-  padding: 16px;
+  padding: 18px;
 }
 
 .section-label {
@@ -1116,8 +1112,8 @@ onMounted(() => setFiltro('7dias'))
 .check-item {
   display: flex;
   align-items: center;
-  padding: 10px;
-  background: var(--bg);
+  padding: 12px;
+  background: rgba(247, 243, 238, .82);
   border-radius: var(--r-md);
   cursor: pointer;
 }
