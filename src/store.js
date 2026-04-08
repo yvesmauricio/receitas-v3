@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { db, configGet, configSet, exportarDados, importarDados, garantirPersistencia } from './db.js'
+import { db, configGet, configSet, exportarDados, importarDados, garantirPersistencia, migrateLegacyDbIfNeeded } from './db.js'
 
 export const useStore = defineStore('choco', () => {
 
@@ -49,6 +49,7 @@ export const useStore = defineStore('choco', () => {
 
   // ── INIT ──────────────────────────────────
   async function init() {
+    await migrateLegacyDbIfNeeded()
     await garantirPersistencia()
     loading.value = true
     try {

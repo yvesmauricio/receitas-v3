@@ -1,43 +1,168 @@
 import Dexie from 'dexie'
 
-export const db = new Dexie('ChocoStoqDB')
+const DB_NAME = 'ChocoStoqDB_v2'
+const LEGACY_DB_NAME = 'ChocoStoqDB'
+const MIGRATION_FLAG = '__legacy_migrated__'
 
-// Schema v5: uuid como chave primária (resolve bug de CRUD com put/delete)
-db.version(5).stores({
-  produtos:   'uuid, nome',
-  receitas:   'uuid, nome',
-  producoes:  'uuid, data_producao',
-  config:     'chave'
-}).upgrade(tx => {
-  // Migra registros antigos que podem não ter uuid
-  return tx.table('produtos').toCollection().modify(p => {
-    if (!p.uuid) p.uuid = crypto.randomUUID()
-  }).then(() =>
-    tx.table('receitas').toCollection().modify(r => {
-      if (!r.uuid) r.uuid = crypto.randomUUID()
-    })
-  ).then(() =>
-    tx.table('producoes').toCollection().modify(p => {
-      if (!p.uuid) p.uuid = crypto.randomUUID()
-    })
-  )
+export const db = new Dexie(DB_NAME)
+
+db.version(1).stores({
+  produtos:  'uuid, nome',
+  receitas:  'uuid, nome',
+  producoes: 'uuid, data_producao',
+  config:    'chave'
 })
+
+function randomId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID()
+  return `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function promisifyRequest(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+async function readAllFromStore(idb, storeName) {
+  if (!idb.objectStoreNames.contains(storeName)) return []
+  const tx = idb.transaction(storeName, 'readonly')
+  const store = tx.objectStore(storeName)
+  return promisifyRequest(store.getAll())
+}
+
+async function openLegacyDatabase() {
+  const exists = await Dexie.exists(LEGACY_DB_NAME).catch(() => false)
+  if (!exists) return null
+
+  const request = indexedDB.open(LEGACY_DB_NAME)
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+    request.onupgradeneeded = () => {
+      request.transaction?.abort()
+      resolve(null)
+    }
+  })
+}
+
+function normalizeProduto(produto) {
+  return {
+    ...produto,
+    uuid: produto.uuid || randomId()
+  }
+}
+
+function normalizeReceita(receita, produtoIdMap, receitaIdMap) {
+  return {
+    ...receita,
+    uuid: receita.uuid || receitaIdMap.get(receita.id) || randomId(),
+    ingredientes: (receita.ingredientes || []).map(ing => ({
+      ...ing,
+      id: ing.tipo === 'receita'
+        ? (receitaIdMap.get(ing.id) || ing.id)
+        : (produtoIdMap.get(ing.id) || ing.id)
+    }))
+  }
+}
+
+function normalizeProducao(producao, receitaIdMap) {
+  return {
+    ...producao,
+    uuid: producao.uuid || randomId(),
+    receita_id: receitaIdMap.get(producao.receita_id) || producao.receita_id,
+    data_producao: producao.data_producao || new Date().toISOString()
+  }
+}
+
+async function importLegacyData(legacyData) {
+  const produtoIdMap = new Map()
+  const receitaIdMap = new Map()
+
+  const produtos = (legacyData.produtos || []).map(produto => {
+    const normalized = normalizeProduto(produto)
+    if (produto.id != null) produtoIdMap.set(produto.id, normalized.uuid)
+    if (produto.uuid) produtoIdMap.set(produto.uuid, normalized.uuid)
+    return normalized
+  })
+
+  const receitasBase = legacyData.receitas || []
+  for (const receita of receitasBase) {
+    const uuid = receita.uuid || randomId()
+    if (receita.id != null) receitaIdMap.set(receita.id, uuid)
+    if (receita.uuid) receitaIdMap.set(receita.uuid, uuid)
+    else if (receita.id == null) receitaIdMap.set(uuid, uuid)
+  }
+
+  const receitas = receitasBase.map(receita => normalizeReceita(receita, produtoIdMap, receitaIdMap))
+  const producoes = (legacyData.producoes || []).map(producao => normalizeProducao(producao, receitaIdMap))
+  const config = (legacyData.config || []).filter(row => row?.chave)
+
+  await db.transaction('rw', db.tables, async () => {
+    await db.produtos.bulkPut(produtos)
+    await db.receitas.bulkPut(receitas)
+    await db.producoes.bulkPut(producoes)
+    if (config.length) await db.config.bulkPut(config)
+    await db.config.put({ chave: MIGRATION_FLAG, valor: true })
+  })
+}
+
+export async function migrateLegacyDbIfNeeded() {
+  await db.open()
+
+  const alreadyMigrated = await db.config.get(MIGRATION_FLAG).catch(() => null)
+  if (alreadyMigrated?.valor) return
+
+  const currentCounts = await Promise.all([
+    db.produtos.count(),
+    db.receitas.count(),
+    db.producoes.count(),
+    db.config.count()
+  ])
+
+  const hasCurrentData = currentCounts.some(count => count > 0)
+  if (hasCurrentData) {
+    await db.config.put({ chave: MIGRATION_FLAG, valor: true })
+    return
+  }
+
+  const legacyDb = await openLegacyDatabase()
+  if (!legacyDb) {
+    await db.config.put({ chave: MIGRATION_FLAG, valor: true })
+    return
+  }
+
+  try {
+    const legacyData = {
+      produtos: await readAllFromStore(legacyDb, 'produtos'),
+      receitas: await readAllFromStore(legacyDb, 'receitas'),
+      producoes: await readAllFromStore(legacyDb, 'producoes'),
+      config: await readAllFromStore(legacyDb, 'config')
+    }
+    await importLegacyData(legacyData)
+  } finally {
+    legacyDb.close()
+  }
+}
 
 // ─── Config local ──────────────────────────────────────────────
 export async function configGet(chave, fallback = null) {
   try {
     const row = await db.config.get(chave)
     return row?.valor ?? fallback
-  } catch { return fallback }
+  } catch {
+    return fallback
+  }
 }
 
 export async function configSet(chave, valor) {
-  try { await db.config.put({ chave, valor }) } catch {}
+  try {
+    await db.config.put({ chave, valor })
+  } catch {}
 }
 
 // ─── Rotina de Backup Forte ─────────────────────────────────────
-
-/** Exporta todo o banco para um objeto JSON */
 export async function exportarDados() {
   const tabelas = ['produtos', 'receitas', 'producoes', 'config']
   const backup = {}
@@ -47,25 +172,23 @@ export async function exportarDados() {
   return backup
 }
 
-/** Importa dados de um JSON (sobrescreve o que existe) */
 export async function importarDados(backup) {
   return db.transaction('rw', db.tables, async () => {
     for (const [tabela, rows] of Object.entries(backup)) {
-      if (db[tabela]) {
-        await db[tabela].clear()
-        await db[tabela].bulkPut(rows)      
-      }
+      if (!db[tabela]) continue
+      await db[tabela].clear()
+      await db[tabela].bulkPut(rows)
     }
+    await db.config.put({ chave: MIGRATION_FLAG, valor: true })
   })
 }
 
-/** Solicita ao navegador que o armazenamento seja persistente */
 export async function garantirPersistencia() {
   if (navigator.storage && navigator.storage.persist) {
     const isPersisted = await navigator.storage.persisted()
     if (!isPersisted) {
       const granted = await navigator.storage.persist()
-      console.log(`Persistência de dados concedida: ${granted}`)
+      console.log(`Persistencia de dados concedida: ${granted}`)
       return granted
     }
     return true
