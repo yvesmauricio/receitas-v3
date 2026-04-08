@@ -11,6 +11,17 @@
         <i class="fas fa-search search-icon"></i>
         <input v-model="busca" class="search-input" type="search" placeholder="Buscar receita…" />
       </div>
+      <div class="cat-filter-wrap">
+        <div class="cat-chips">
+          <button
+            v-for="c in categoriasFiltro"
+            :key="c"
+            class="cat-chip"
+            :class="{ active: categoriaAtiva === c }"
+            @click="categoriaAtiva = c"
+          >{{ c }}</button>
+        </div>
+      </div>
     </div>
 
     <section class="tab-content">
@@ -25,17 +36,22 @@
         >
           <!-- Conteúdo principal -->
           <div class="list-row" @click="abrir(r)">
+            <div class="recipe-icon" :class="r.eh_intermediaria ? 'badge-blue' : 'badge-gold'">
+              <i :class="r.eh_intermediaria ? 'fas fa-blender' : 'fas fa-cookie-bite'"></i>
+            </div>
             <div class="row-info">
               <div class="row-name">{{ r.nome }}</div>
               <div class="row-sub">
-                <span class="badge" :class="r.eh_intermediaria ? 'badge-blue' : 'badge-gold'">
-                  {{ r.eh_intermediaria ? '🥣 Base/Recheio' : '🍫 Produto final' }}
+                <span class="recipe-price">Venda: {{ R$(r.preco_sugerido || 0) }}</span>
+                <span class="recipe-dot">•</span>
+                <span class="recipe-profit" :class="{ negative: getLucroValor(r) < 0 }">
+                  Lucro: {{ R$(getLucroValor(r)) }} ({{ getLucroPercentual(r) }})
                 </span>
-                <span v-if="r.rendimento">Rende: {{ r.rendimento }} {{ r.unidade_rendimento }}</span>
-                <span v-if="r.preco_sugerido" class="recipe-price">{{ R$(r.preco_sugerido) }}</span>
-                <span v-if="s.getCustoTotal(r)" class="recipe-cost">Custo: {{ R$(s.getCustoTotal(r)) }}</span>
               </div>
             </div>
+            <span class="badge recipe-type-tag" :class="r.eh_intermediaria ? 'badge-blue' : 'badge-gold'">
+              {{ r.eh_intermediaria ? 'Base/Recheio' : 'Produto final' }}
+            </span>
             <i class="fas fa-chevron-right row-chevron"></i>
           </div>
 
@@ -267,12 +283,14 @@ const { closeAll } = useSwipe()
 const busca  = ref('')
 const modal  = ref(null)
 const saving = ref(false)
+const categoriaAtiva = ref('Todas')
 
 const pickerSearch = ref('')
 const pickerTab    = ref('todos')
 const pickerIndex  = ref(null)
 const pickerTabs   = [{ v:'todos', l:'Tudo' }, { v:'insumos', l:'📦 Ingredientes' }, { v:'bases', l:'🥣 Bases' }]
 const modalHistory = []
+const categoriasFiltro = ['Todas', 'Sem categoria', 'Trufa', 'Cone', 'Barra', 'Brownie', 'Bolo', 'Ovo', 'Base']
 
 const form = reactive({
   uuid: null, nome: '', categoria: '', eh_intermediaria: 0,
@@ -379,6 +397,18 @@ function getCustoComposicao(ing) {
   if (!prod || !prod.fator_conversao) return 0
   return ((prod.custo_por_unidade || 0) / (prod.fator_conversao || 1)) * qtd
 }
+function getLucroValor(receita) {
+  const venda = Number(receita?.preco_sugerido || 0)
+  const rendimento = Number(receita?.rendimento || 1) || 1
+  const custoUnit = s.getCustoTotal(receita) / rendimento
+  return venda - custoUnit
+}
+function getLucroPercentual(receita) {
+  const venda = Number(receita?.preco_sugerido || 0)
+  if (venda <= 0) return '0%'
+  const lucro = getLucroValor(receita)
+  return `${((lucro / venda) * 100).toFixed(0)}%`
+}
 
 /* ── Ingredientes ─────────────────────────────────────────────── */
 function addNovoItem() {
@@ -435,6 +465,15 @@ async function criarNovoInsumo() {
 /* ── Lista ────────────────────────────────────────────────────── */
 const lista = computed(() => {
   let r = s.receitas
+
+  if (categoriaAtiva.value === 'Base') {
+    r = r.filter(x => x.eh_intermediaria || x.categoria === 'Base')
+  } else if (categoriaAtiva.value === 'Sem categoria') {
+    r = r.filter(x => !x.categoria)
+  } else if (categoriaAtiva.value !== 'Todas') {
+    r = r.filter(x => x.categoria === categoriaAtiva.value)
+  }
+
   if (busca.value.trim()) {
     const q = normalizar(busca.value)
     r = r.filter(x => {
@@ -507,8 +546,26 @@ async function excluirDieto(r) {
 .mt-16 { margin-top:16px; }
 
 .row-chevron { color: var(--border2); font-size: 0.75rem; flex-shrink: 0; margin-left: 4px; }
+.recipe-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
 .recipe-price { color:var(--green); font-weight:700; font-family:var(--mono); }
-.recipe-cost  { font-size:.78rem; color:var(--muted); }
+.recipe-dot   { color: var(--border2); }
+.recipe-profit { font-size:.78rem; color:var(--brown-mid); font-weight:700; }
+.recipe-profit.negative { color: var(--red); }
+.recipe-type-tag { margin-left: auto; flex-shrink: 0; }
+.cat-filter-wrap { margin: -4px -16px 0; padding: 6px 0 0; background: var(--surface); }
+.cat-chips { display: flex; gap: 8px; overflow-x: auto; padding: 0 16px 2px; scrollbar-width: none; }
+.cat-chips::-webkit-scrollbar { display: none; }
+.cat-chip { flex-shrink: 0; padding: 7px 14px; border-radius: 20px; border: 1px solid var(--border); background: #fff; font-size: 0.75rem; font-weight: 700; color: var(--muted); cursor: pointer; }
+.cat-chip.active { background: var(--brown); color: #fff; border-color: var(--brown); }
 
 /* Botões de swipe */
 .swipe-btn {

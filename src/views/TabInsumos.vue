@@ -11,6 +11,17 @@
         <i class="fas fa-search search-icon"></i>
         <input v-model="busca" class="search-input" type="search" placeholder="Buscar ingrediente…" />
       </div>
+      <div class="cat-filter-wrap">
+        <div class="cat-chips">
+          <button
+            v-for="c in categoriasFiltro"
+            :key="c"
+            class="cat-chip"
+            :class="{ active: categoriaAtiva === c }"
+            @click="categoriaAtiva = c"
+          >{{ c }}</button>
+        </div>
+      </div>
     </div>
 
     <section class="tab-content">
@@ -25,14 +36,18 @@
         >
           <!-- Conteúdo da linha -->
           <div class="list-row" @click="abrir(p)">
+            <div class="ing-icon" :class="tipoBadge(p.tipo)">
+              <i :class="tipoIcon(p.tipo)"></i>
+            </div>
             <div class="row-info">
               <div class="row-name">{{ p.nome }}</div>
               <div class="row-sub">
-                <span class="badge" :class="tipoBadge(p.tipo)">{{ tipoLabel(p.tipo) }}</span>
-                <span v-if="p.unidade_compra">{{ p.unidade_compra }}</span>
-                <span v-if="p.custo_por_unidade" class="ing-preco">{{ R$(p.custo_por_unidade) }}</span>
+                <span class="ing-preco">{{ R$(p.custo_por_unidade || 0) }}</span>
+                <span class="ing-dot">•</span>
+                <span>{{ p.unidade_compra || p.unidade_base || '-' }}</span>
               </div>
             </div>
+            <span class="badge ing-type-tag" :class="tipoBadge(p.tipo)">{{ tipoLabel(p.tipo) }}</span>
             <i class="fas fa-chevron-right row-chevron"></i>
           </div>
 
@@ -150,13 +165,26 @@ const { closeAll } = useSwipe()
 const busca  = ref('')
 const modal  = ref(null)
 const saving = ref(false)
+const categoriaAtiva = ref('Todas')
 let modalHistoryToken = null
 
 const UNIDADES_COMPRA = ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pct', 'dz']
+const categoriasFiltro = ['Todas', 'Ingrediente', 'Base/Recheio', 'Produto final', 'Embalagem']
 
 /* ── Lista ────────────────────────────────────────────────────── */
 const lista = computed(() => {
   let r = s.produtos
+
+  if (categoriaAtiva.value !== 'Todas') {
+    const tipoMap = {
+      'Ingrediente': 'insumo',
+      'Base/Recheio': 'base',
+      'Produto final': 'final',
+      'Embalagem': 'embalagem'
+    }
+    r = r.filter(p => p.tipo === tipoMap[categoriaAtiva.value])
+  }
+
   if (busca.value.trim()) {
     const q = normalizar(busca.value)
     r = r.filter(p => normalizar(p.nome + ' ' + p.tipo).includes(q))
@@ -184,6 +212,14 @@ function tipoBadge(t) {
 }
 function tipoLabel(t) {
   return { insumo: 'Ingrediente', base: 'Base/Recheio', final: 'Produto final', embalagem: 'Embalagem' }[t] || t || '-'
+}
+function tipoIcon(t) {
+  return {
+    insumo: 'fas fa-mortar-pestle',
+    base: 'fas fa-blender',
+    final: 'fas fa-cookie-bite',
+    embalagem: 'fas fa-box'
+  }[t] || 'fas fa-cube'
 }
 
 /* ── Modal ────────────────────────────────────────────────────── */
@@ -249,9 +285,26 @@ async function excluirDireto(p) {
 .tab-content { padding-top: 10px; }
 .mt-12  { margin-top: 12px; }
 .spacer { flex: 1; }
+.cat-filter-wrap { margin: -4px -16px 0; padding: 6px 0 0; background: var(--surface); }
+.cat-chips { display: flex; gap: 8px; overflow-x: auto; padding: 0 16px 2px; scrollbar-width: none; }
+.cat-chips::-webkit-scrollbar { display: none; }
+.cat-chip { flex-shrink: 0; padding: 7px 14px; border-radius: 20px; border: 1px solid var(--border); background: #fff; font-size: 0.75rem; font-weight: 700; color: var(--muted); cursor: pointer; }
+.cat-chip.active { background: var(--brown); color: #fff; border-color: var(--brown); }
 
+.ing-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
 .row-chevron { color: var(--border2); font-size: 0.75rem; flex-shrink: 0; margin-left: 4px; }
 .ing-preco   { font-family: var(--mono); font-weight: 700; color: var(--brown); font-size: 0.82rem; }
+.ing-dot     { color: var(--border2); }
+.ing-type-tag { margin-left: auto; flex-shrink: 0; }
 
 /* Botões de swipe */
 .swipe-btn {
