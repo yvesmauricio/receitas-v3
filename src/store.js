@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { db, configGet, configSet, exportarDados, importarDados, garantirPersistencia, migrateLegacyDbIfNeeded } from './db.js'
+import { isGoogleDriveBackupConfigured, salvarBackupNoDrive, restaurarBackupDoDrive } from './services/googleDriveBackup.js'
 
 export const useStore = defineStore('choco', () => {
 
@@ -20,6 +21,7 @@ export const useStore = defineStore('choco', () => {
     nome: 'Meu Caderno de Receitas',
     slogan: 'Registro de Produção'
   })
+  const googleDriveConfigured = computed(() => isGoogleDriveBackupConfigured())
 
   const clean = (obj) => JSON.parse(JSON.stringify(obj))
 
@@ -80,6 +82,22 @@ export const useStore = defineStore('choco', () => {
     notify('Backup baixado com sucesso!')
   }
 
+  async function backupGoogleDrive() {
+    if (!googleDriveConfigured.value) {
+      notify('Configure o Google Client ID para usar o backup no Drive', 'error')
+      return
+    }
+
+    try {
+      const dados = await exportarDados()
+      await salvarBackupNoDrive(dados)
+      notify('Backup enviado para o Google Drive!')
+    } catch (error) {
+      console.error(error)
+      notify('Nao foi possivel enviar o backup para o Google Drive', 'error')
+    }
+  }
+
   async function restaurarGeral(arquivo) {
     const reader = new FileReader()
     reader.onload = async (e) => {
@@ -93,6 +111,28 @@ export const useStore = defineStore('choco', () => {
       }
     }
     reader.readAsText(arquivo)
+  }
+
+  async function restaurarGoogleDrive() {
+    if (!googleDriveConfigured.value) {
+      notify('Configure o Google Client ID para usar a restauracao do Drive', 'error')
+      return
+    }
+
+    try {
+      const dados = await restaurarBackupDoDrive()
+      await importarDados(dados)
+      notify('Backup do Google Drive restaurado! Recarregando…')
+      setTimeout(() => location.reload(), 1500)
+    } catch (error) {
+      console.error(error)
+      notify(
+        error?.message === 'Nenhum backup encontrado no Google Drive'
+          ? 'Nenhum backup encontrado no Google Drive'
+          : 'Nao foi possivel restaurar o backup do Google Drive',
+        'error'
+      )
+    }
   }
 
   // ── PRODUÇÕES ─────────────────────────────
@@ -219,13 +259,13 @@ export const useStore = defineStore('choco', () => {
     producaoSemana, baixoEstoque,
 
     // Config
-    company, saveCompany,
+    company, googleDriveConfigured, saveCompany,
 
     // Ações
     init, carregarProducoes, getCustoTotal,
     salvarProduto, excluirProduto,
     salvarReceita, excluirReceita,
     registrarProducao, registrarLoteProducao, estornarProducao,
-    backupGeral, restaurarGeral
+    backupGeral, restaurarGeral, backupGoogleDrive, restaurarGoogleDrive
   }
 })

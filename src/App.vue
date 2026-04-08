@@ -25,7 +25,18 @@
           <i class="fas fa-upload"></i> Importar Backup JSON
           <input type="file" hidden accept=".json" @change="e => s.restaurarGeral(e.target.files[0])" />
         </label>
+        <button class="btn btn-secondary btn-full" :disabled="!s.googleDriveConfigured" @click="s.backupGoogleDrive()">
+          <i class="fab fa-google-drive"></i> Salvar backup no Google Drive
+        </button>
+        <button class="btn btn-secondary btn-full" :disabled="!s.googleDriveConfigured" @click="s.restaurarGoogleDrive()">
+          <i class="fas fa-cloud-download-alt"></i> Restaurar do Google Drive
+        </button>
       </div>
+      <p class="settings-hint" :class="{ 'settings-hint-error': !s.googleDriveConfigured }">
+        {{ s.googleDriveConfigured
+          ? 'O backup do Drive usa a conta Google autenticada no celular e salva o arquivo na pasta privada do app.'
+          : 'Para ativar o backup no Google Drive, defina VITE_GOOGLE_CLIENT_ID no ambiente do app.' }}
+      </p>
 
       <template #foot>
         <button class="btn btn-secondary" @click="closeSettings">Cancelar</button>
@@ -107,6 +118,7 @@ watch(() => s.modal?.id, (next, prev) => {
 
 <style scoped>
 .settings-hint { font-size: .75rem; color: var(--muted); margin-bottom: 10px; }
+.settings-hint-error { color: var(--red); }
 .pointer { cursor: pointer; }
 .settings-section { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .8px; color: var(--gold-dark); margin: 18px 0 10px; display: flex; align-items: center; gap: 7px; }
 .backup-btns { display: flex; flex-direction: column; gap: 8px; }
