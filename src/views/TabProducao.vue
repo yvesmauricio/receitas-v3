@@ -34,6 +34,11 @@
           </button>
 
           <div v-if="isGrupoAberto(grupo.id)" class="production-card-body">
+            <div class="production-card-tools">
+              <button class="btn-sec-sm" @click="abrirCozinhaHistorica(grupo)">
+                <i class="fas fa-clipboard-list"></i> Lista de preparo
+              </button>
+            </div>
             <SwipeRow
               v-for="p in grupo.itens"
               :key="p.uuid || p.id"
@@ -208,6 +213,71 @@
         </button>
       </template>
     </BaseModal>
+
+    <BaseModal v-if="currentModal === 'cozinha-historico'" title="Lista de Preparo do Lote" @close="fecharModal">
+      <div class="pesagem-header">
+        <div class="pesagem-stat"><span>Lote:</span> <strong>{{ loteHistorico.length }} itens</strong></div>
+        <div class="pesagem-stat"><span>Data:</span> <strong>{{ historicoGrupo ? dataHoraBR(historicoGrupo.data) : '-' }}</strong></div>
+      </div>
+
+      <div v-if="historicoAviso" class="history-note mt-12">
+        <i class="fas fa-circle-info"></i>
+        <span>{{ historicoAviso }}</span>
+      </div>
+
+      <div class="sheet-card mt-12">
+        <div class="sheet-body">
+          <div v-for="item in loteHistoricoComIngredientes" :key="item.uid" class="batch-group">
+            <div class="section-label group-title">
+              <i class="fas fa-utensils"></i> {{ item.nome }} ({{ item.qtd_produzir }} {{ item.unidade }})
+            </div>
+
+            <div v-if="item.ingredientes.length" class="checklist mb-12">
+              <div
+                v-for="ing in item.ingredientes"
+                :key="ing.uid"
+                class="check-item"
+                :class="{ 'done': historicoChecklist[ing.uid] }"
+                @click="historicoChecklist[ing.uid] = !historicoChecklist[ing.uid]"
+              >
+                <div class="check-box"><i class="fas" :class="historicoChecklist[ing.uid] ? 'fa-check-square' : 'fa-square'"></i></div>
+                <div class="check-info">
+                  <div class="check-name">{{ ing.nome }}</div>
+                  <div class="check-val">{{ fmtQ(ing.total, ing.unidade) }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="history-empty-ing mb-12">
+              Receita não encontrada no cadastro atual para reconstruir os ingredientes desse item.
+            </div>
+          </div>
+
+          <template v-if="historicoInsumosGlobais.length">
+            <div class="section-label group-title mt-16 highlight-gold">
+              <i class="fas fa-fill-drip"></i> Total para Cobertura / Uso Geral
+            </div>
+            <div class="global-summary">
+              <div v-for="g in historicoInsumosGlobais" :key="g.id" class="global-item">
+                <span>{{ g.nome }}</span>
+                <strong>{{ fmtQ(g.total, g.unidade) }}</strong>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <div v-if="historicoComPreparo.length" class="mt-16">
+        <div class="section-label">📝 Notas de Preparo</div>
+        <div v-for="item in historicoComPreparo" :key="item.id" class="prep-note">
+          <strong>{{ item.nome }}:</strong> {{ item.modo }}
+        </div>
+      </div>
+
+      <template #foot>
+        <button class="btn btn-secondary" @click="fecharModal">Fechar</button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -233,6 +303,8 @@ const checklist    = reactive({})
 const catAtiva     = ref('Todas')
 const gruposAbertos = ref({})
 const modalHistory = []
+const historicoGrupo = ref(null)
+const historicoChecklist = reactive({})
 
 const listaCategorias = ['Todas', 'Trufa', 'Cone', 'Barra', 'Brownie', 'Bolo', 'Ovo', 'Base']
 const filtros = [{ v:'hoje', l:'Hoje' }, { v:'7dias', l:'7 dias' }, { v:'30dias', l:'30 dias' }]
@@ -330,6 +402,75 @@ const loteComPreparo = computed(() =>
     .map(i => ({ id: i.receita_id, nome: i.nome, modo: s.receitas.find(r => r.uuid === i.receita_id)?.modo_preparo }))
     .filter(x => x.modo)
 )
+
+const loteHistorico = computed(() => {
+  if (!historicoGrupo.value) return []
+
+  return historicoGrupo.value.itens.map((item, idx) => {
+    const receita = s.receitas.find(r => r.uuid === item.receita_id)
+    const qtd = Number(item.quantidade_produzida || item.quantidade || 0)
+
+    return {
+      uid: item.uuid || `${historicoGrupo.value.id}-${idx}`,
+      id: item.receita_id,
+      nome: limpar(item.nome_receita || item.receita_nome),
+      qtd_produzir: qtd,
+      unidade: item.unidade_rendimento || receita?.unidade_rendimento || 'un',
+      ingredientes: receita?.ingredientes || [],
+      rendimento_base: receita?.rendimento || 1,
+      modo_preparo: receita?.modo_preparo || '',
+      receitaEncontrada: !!receita
+    }
+  })
+})
+
+const loteHistoricoComIngredientes = computed(() =>
+  loteHistorico.value.map(item => {
+    const fator = item.qtd_produzir / (item.rendimento_base || 1)
+    const ingredientes = (item.ingredientes || []).map(ing => {
+      const alvo = ing.tipo === 'receita' ? s.receitas.find(x => x.uuid === ing.id) : s.produtos.find(x => x.uuid === ing.id)
+      return {
+        uid: `${item.uid}-${ing.tipo}-${ing.id}`,
+        id: ing.id,
+        nome: (ing.tipo === 'receita' ? '🥣 ' : '') + (alvo?.nome || 'Item removido'),
+        unidade: ing.tipo === 'receita' ? alvo?.unidade_rendimento : alvo?.unidade_base,
+        total: ing.quantidade * fator
+      }
+    })
+    return { ...item, ingredientes }
+  })
+)
+
+const historicoInsumosGlobais = computed(() => {
+  const mapa = {}
+  const nomesParaConsolidar = ['chocolate ao leite', 'cobertura', 'ganache']
+
+  loteHistoricoComIngredientes.value.forEach(item => {
+    item.ingredientes.forEach(ing => {
+      const nomeBase = normalizar(ing.nome)
+      if (nomesParaConsolidar.some(n => nomeBase.includes(n))) {
+        if (!mapa[ing.id]) mapa[ing.id] = { id: ing.id, nome: ing.nome, total: 0, unidade: ing.unidade }
+        mapa[ing.id].total += ing.total
+      }
+    })
+  })
+
+  return Object.values(mapa)
+})
+
+const historicoComPreparo = computed(() =>
+  loteHistorico.value
+    .map(item => ({ id: item.uid, nome: item.nome, modo: item.modo_preparo }))
+    .filter(item => item.modo)
+)
+
+const historicoAviso = computed(() => {
+  if (!historicoGrupo.value) return ''
+  if (loteHistorico.value.some(item => !item.receitaEncontrada)) {
+    return 'Alguns itens nao foram encontrados nas receitas atuais e podem aparecer sem ingredientes.'
+  }
+  return 'Esta lista foi reconstruida a partir das receitas atuais cadastradas.'
+})
 
 // ── Métodos ───────────────────────────────────────────────────
 function setFiltro(v) {
@@ -484,6 +625,12 @@ function abrirMontagem() {
   abrirModal('montagem')
 }
 
+function abrirCozinhaHistorica(grupo) {
+  historicoGrupo.value = grupo
+  Object.keys(historicoChecklist).forEach(k => delete historicoChecklist[k])
+  abrirModal('cozinha-historico')
+}
+
 function getQtdNoLote(id) { return lote.value.find(i => i.receita_id === id)?.qtd_produzir || 0 }
 
 function alterarQtdNoLote(r, delta) {
@@ -553,6 +700,7 @@ onMounted(() => setFiltro('7dias'))
 .production-groups { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px 0; }
 .production-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow-sm); }
 .production-card-head { width: 100%; border: none; background: linear-gradient(180deg, #fff 0%, #fdfaf5 100%); padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; }
+.production-card-tools { display: flex; justify-content: flex-end; padding: 10px 12px 0; }
 .production-card-main { min-width: 0; }
 .production-card-title { font-size: 0.92rem; font-weight: 800; color: var(--brown-dark); }
 .production-card-sub { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; font-size: 0.76rem; color: var(--muted); }
@@ -561,6 +709,8 @@ onMounted(() => setFiltro('7dias'))
 .production-card-chevron { color: var(--muted); transition: transform var(--t); }
 .production-card-chevron.open { transform: rotate(180deg); }
 .production-card-body { border-top: 1px solid var(--border); }
+.history-note { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border-radius: var(--r-md); background: var(--gold-bg); border: 1px solid var(--gold); color: var(--brown); font-size: 0.82rem; line-height: 1.5; }
+.history-empty-ing { background: var(--cream); border: 1px dashed var(--border2); color: var(--muted); border-radius: var(--r-md); padding: 12px; font-size: 0.82rem; }
 
 /* Botão de swipe: Estornar */
 .swipe-btn.estornar {
