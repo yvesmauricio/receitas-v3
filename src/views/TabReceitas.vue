@@ -80,128 +80,164 @@
 
     <!-- ─── Modal Receita ──────────────────────────────────────── -->
     <BaseModal v-if="modal === 'receita'" :title="form.uuid ? 'Editar Receita' : 'Nova Receita'" @close="fecharModal">
-      <div class="fg">
-        <label class="label label-req">Nome</label>
-        <input v-model="form.nome" class="input" autofocus placeholder="Ex: Trufa Tradicional" />
-      </div>
-      <div class="fg">
-        <label class="label">Tipo</label>
-        <div class="segmented" :class="{ 'is-base': Number(form.eh_intermediaria) === 1 }">
-          <div class="segmented-thumb"></div>
-          <button
-            type="button"
-            class="segmented-btn"
-            :class="{ active: Number(form.eh_intermediaria) === 0 }"
-            @click="form.eh_intermediaria = 0"
-          >
-            <span class="choice-icon">🍫</span>
-            <span class="choice-text">Produto final</span>
-          </button>
-          <button
-            type="button"
-            class="segmented-btn"
-            :class="{ active: Number(form.eh_intermediaria) === 1 }"
-            @click="form.eh_intermediaria = 1"
-          >
-            <span class="choice-icon">🥣</span>
-            <span class="choice-text">Base/Recheio</span>
-          </button>
-        </div>
-      </div>
-      <div class="fg">
-        <label class="label">Categoria</label>
-        <div class="chips-elegant">
-          <button
-            v-for="c in ['Trufa','Cone','Barra','Brownie','Bolo','Ovo','Base']"
-            :key="c"
-            type="button"
-            class="choice-pill"
-            :class="{ active: form.categoria === c }"
-            @click="form.categoria = c"
-          >
-            {{ c }}
-          </button>
-        </div>
-      </div>
-      <div class="inline-pair">
-        <div class="fg flex-3">
-          <label class="label">Rendimento</label>
-          <input v-model.number="form.rendimento" class="input" type="number" min="0" step="0.01" placeholder="Ex: 10" inputmode="decimal" />
-        </div>
-        <div class="fg flex-1">
-          <label class="label">Unidade</label>
-          <select v-model="form.unidade_rendimento" class="input">
-            <option v-for="u in ['un','g','kg','pct','caixa']" :key="u" :value="u">{{ u }}</option>
-          </select>
-        </div>
-      </div>
-      <div class="fg">
-        <label class="label">Peso por unidade (g)</label>
-        <input v-model.number="form.peso_unitario" class="input" type="number" inputmode="decimal" placeholder="Ex: 30" />
-      </div>
-      <div class="fg">
-        <label class="label">Preço Sugerido (R$)</label>
-        <input
-          :value="maskMoney(form.preco_sugerido)"
-          @input="e => form.preco_sugerido = parseMoney(e.target.value)"
-          class="input" type="text" inputmode="numeric" placeholder="0,00"
-        />
-      </div>
 
-      <div v-if="s.getCustoTotal(form) > 0" class="profit-box">
-        <div v-if="totalIngredientesG > 0" class="profit-details">
-          <div class="profit-item"><span>Total ingredientes:</span><strong>{{ totalIngredientesG.toFixed(2) }} g</strong></div>
-          <div v-if="pesoEsperado && !form.eh_intermediaria" class="profit-item">
-            <span>Peso esperado:</span><strong>{{ pesoEsperado.toFixed(2) }} g</strong>
-          </div>
-          <div v-if="pesoEsperado && !form.eh_intermediaria" class="profit-item" :class="Math.abs(diferencaPeso) > 1 ? 'highlight-warn' : 'highlight-ok'">
-            <span>Diferença:</span><strong>{{ diferencaPeso > 0 ? '+' : '' }}{{ diferencaPeso.toFixed(2) }} g</strong>
+      <!-- ── Seção: Identidade ── -->
+      <div class="form-section">
+        <div class="form-section-label"><i class="fas fa-tag"></i> Identidade</div>
+        <div class="fg">
+          <label class="label label-req">Nome da receita</label>
+          <input v-model="form.nome" class="input" autofocus placeholder="Ex: Trufa Tradicional" autocomplete="off" />
+        </div>
+
+        <!-- Tipo: toggle visual -->
+        <div class="fg">
+          <label class="label">Tipo</label>
+          <div class="type-toggle">
+            <button type="button" class="type-btn" :class="{ active: Number(form.eh_intermediaria) === 0 }" @click="form.eh_intermediaria = 0">
+              <span class="type-ico">🍫</span>
+              <div>
+                <div class="type-label">Produto final</div>
+                <div class="type-sub">Para venda direta</div>
+              </div>
+            </button>
+            <button type="button" class="type-btn" :class="{ active: Number(form.eh_intermediaria) === 1 }" @click="form.eh_intermediaria = 1">
+              <span class="type-ico">🥣</span>
+              <div>
+                <div class="type-label">Base / Recheio</div>
+                <div class="type-sub">Usada em outras receitas</div>
+              </div>
+            </button>
           </div>
         </div>
-        <div class="profit-divider"></div>
-        <div class="profit-item"><span>Custo Total:</span><strong>{{ R$(s.getCustoTotal(form)) }}</strong></div>
-        <div class="profit-item"><span>Custo por unidade:</span><strong>{{ R$(s.getCustoTotal(form) / (form.rendimento || 1)) }}</strong></div>
-        <div v-if="form.preco_sugerido" class="profit-item highlight">
-          <span>💰 Lucro p/ {{ form.unidade_rendimento }}:</span>
-          <strong>{{ R$(form.preco_sugerido - (s.getCustoTotal(form) / (form.rendimento || 1))) }}</strong>
+
+        <!-- Categoria: chips horizontais -->
+        <div class="fg">
+          <label class="label">Categoria <span class="label-opt">(opcional)</span></label>
+          <div class="cat-pill-row">
+            <button
+              v-for="c in ['Trufa','Cone','Barra','Brownie','Bolo','Ovo','Base']"
+              :key="c"
+              type="button"
+              class="cat-pill"
+              :class="{ active: form.categoria === c }"
+              @click="form.categoria = form.categoria === c ? '' : c"
+            >{{ c }}</button>
+          </div>
         </div>
       </div>
 
-      <div class="section-title">🧂 Ingredientes</div>
+      <!-- ── Seção: Rendimento ── -->
+      <div class="form-section">
+        <div class="form-section-label"><i class="fas fa-layer-group"></i> Rendimento &amp; Preço</div>
 
-      <div v-if="!form.ingredientes.length" class="ing-empty">
-        <i class="fas fa-info-circle"></i>
-        Toque em <strong>+ Ingrediente</strong> para adicionar ingredientes (chocolate, leite condensado...) ou
-        <strong>bases 🥣</strong> - outra receita usada como ingrediente.
+        <div class="render-row">
+          <div class="fg render-qtd">
+            <label class="label">Rendimento</label>
+            <input v-model.number="form.rendimento" class="input" type="number" min="0" step="0.01" placeholder="10" inputmode="decimal" />
+          </div>
+          <div class="fg render-un">
+            <label class="label">Unidade</label>
+            <select v-model="form.unidade_rendimento" class="input">
+              <option v-for="u in ['un','g','kg','pct','caixa']" :key="u" :value="u">{{ u }}</option>
+            </select>
+          </div>
+          <div class="fg render-peso">
+            <label class="label">Peso/un <span class="label-opt">(g)</span></label>
+            <input v-model.number="form.peso_unitario" class="input" type="number" inputmode="decimal" placeholder="30" />
+          </div>
+        </div>
+
+        <div class="fg">
+          <label class="label">Preço de venda sugerido</label>
+          <div class="input-with-prefix">
+            <span class="input-prefix">R$</span>
+            <input
+              :value="maskMoney(form.preco_sugerido)"
+              @input="e => form.preco_sugerido = parseMoney(e.target.value)"
+              class="input input-prefixed" type="text" inputmode="numeric" placeholder="0,00"
+            />
+          </div>
+        </div>
+
+        <!-- Painel de lucratividade -->
+        <div v-if="s.getCustoTotal(form) > 0" class="profit-panel">
+          <div class="profit-row">
+            <span class="profit-label">Custo total</span>
+            <span class="profit-val cost">{{ R$(s.getCustoTotal(form)) }}</span>
+          </div>
+          <div class="profit-row">
+            <span class="profit-label">Custo por {{ form.unidade_rendimento }}</span>
+            <span class="profit-val cost">{{ R$(s.getCustoTotal(form) / (form.rendimento || 1)) }}</span>
+          </div>
+          <div v-if="totalIngredientesG > 0" class="profit-row">
+            <span class="profit-label">Total ingredientes</span>
+            <span class="profit-val">{{ totalIngredientesG.toFixed(0) }} g</span>
+          </div>
+          <div v-if="form.preco_sugerido" class="profit-divider"></div>
+          <div v-if="form.preco_sugerido" class="profit-row profit-row-total">
+            <span class="profit-label">Lucro por {{ form.unidade_rendimento }}</span>
+            <span class="profit-val" :class="(form.preco_sugerido - s.getCustoTotal(form) / (form.rendimento || 1)) >= 0 ? 'gain' : 'loss'">
+              {{ R$(form.preco_sugerido - s.getCustoTotal(form) / (form.rendimento || 1)) }}
+            </span>
+          </div>
+        </div>
       </div>
 
-      <div v-for="(ing, i) in form.ingredientes" :key="ing._key" class="ingredient-row">
-        <button class="ing-select-btn" :class="ing.tipo === 'receita' ? 'is-base' : 'is-insumo'" @click="abrirPicker(i)">
-          <span class="ing-badge">{{ ing.tipo === 'receita' ? '🥣' : '📦' }}</span>
-          <span class="ing-nome">{{ getNomeIng(ing) || 'Toque para selecionar…' }}</span>
-          <i class="fas fa-chevron-down ing-chevron"></i>
+      <!-- ── Seção: Ingredientes ── -->
+      <div class="form-section">
+        <div class="form-section-label"><i class="fas fa-list-ul"></i> Ingredientes</div>
+
+        <div v-if="!form.ingredientes.length" class="ing-empty-state">
+          <i class="fas fa-plus-circle"></i>
+          <span>Toque em <strong>+ Adicionar</strong> para incluir ingredientes ou bases de outras receitas</span>
+        </div>
+
+        <div v-for="(ing, i) in form.ingredientes" :key="ing._key" class="ing-row">
+          <!-- Botão de selecionar ingrediente -->
+          <button class="ing-pick-btn" :class="ing.tipo === 'receita' ? 'pick-base' : 'pick-insumo'" @click="abrirPicker(i)">
+            <span class="ing-pick-ico">{{ ing.tipo === 'receita' ? '🥣' : '📦' }}</span>
+            <span class="ing-pick-nome">{{ getNomeIng(ing) || 'Selecionar…' }}</span>
+            <i class="fas fa-chevron-down ing-pick-chev"></i>
+          </button>
+          <!-- Qtd + unidade + remover inline -->
+          <div class="ing-controls">
+            <input
+              v-model.number="ing.quantidade"
+              class="input ing-qty"
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="0.001"
+              placeholder="0"
+              :aria-label="`Quantidade de ${getNomeIng(ing)}`"
+            />
+            <span class="ing-unit-tag">{{ getUnidade(ing) }}</span>
+            <button class="ing-remove" type="button" :aria-label="`Remover ${getNomeIng(ing)}`" @click="removerIngrediente(i)">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        </div>
+
+        <button class="btn-add-ing" @click="addNovoItem">
+          <i class="fas fa-plus"></i> Adicionar ingrediente
         </button>
-        <div class="ing-qtd-group">
-          <input v-model.number="ing.quantidade" class="input ing-qtd-input" type="number" inputmode="decimal" min="0" step="0.001" placeholder="0" />
-          <span class="ing-unidade">{{ getUnidade(ing) }}</span>
-        </div>
-        <button class="ing-del" type="button" aria-label="Remover ingrediente" @click="removerIngrediente(i)">x</button>
+        <button v-if="form.ingredientes.length" class="btn-ing-detail" @click="abrirModal('ingredientes-detalhes')">
+          <i class="fas fa-table"></i> Ver custo detalhado
+        </button>
       </div>
 
-      <button class="btn btn-secondary btn-full ing-add-btn" @click="addNovoItem">
-        <i class="fas fa-plus"></i> Ingrediente
-      </button>
-      <button v-if="form.ingredientes.length" class="btn btn-secondary btn-full ing-details-btn" @click="abrirModal('ingredientes-detalhes')">
-        <i class="fas fa-list-ul"></i> Ver detalhes dos ingredientes
-      </button>
-
-      <div class="fg mt-16">
-        <label class="label">Modo de Preparo</label>
-        <textarea v-model="form.modo_preparo" class="input textarea-v" rows="3" placeholder="Passo a passo…"></textarea>
+      <!-- ── Seção: Preparo ── -->
+      <div class="form-section">
+        <div class="form-section-label"><i class="fas fa-utensils"></i> Modo de preparo <span class="label-opt" style="text-transform:none;letter-spacing:0;font-weight:500">(opcional)</span></div>
+        <div class="fg">
+          <textarea v-model="form.modo_preparo" class="input textarea-preparo" rows="4" placeholder="Descreva o passo a passo da receita…"></textarea>
+        </div>
       </div>
 
       <template #foot>
-        <button v-if="form.uuid" class="btn btn-danger" @click="excluir"><i class="fas fa-trash"></i></button>
+        <button v-if="form.uuid" class="btn btn-danger btn-icon-only" @click="excluir" title="Excluir receita">
+          <i class="fas fa-trash"></i>
+        </button>
         <div class="spacer"></div>
         <button class="btn btn-secondary" @click="fecharModal">Cancelar</button>
         <button class="btn btn-primary" :disabled="!form.nome || saving" @click="salvar">
@@ -581,197 +617,374 @@ async function excluirDieto(r) {
 </script>
 
 <style scoped>
-.loading-box { display:flex; justify-content:center; padding:40px; }
-.tab-content { padding-top: 10px; }
-.spacer      { flex:1; }
-.mt-8  { margin-top:8px; }
-.mt-10 { margin-top:10px; }
-.mt-12 { margin-top:12px; }
-.mt-16 { margin-top:16px; }
+/* ── Lista ── */
+.loading-box { display:flex; justify-content:center; padding:40px }
+.tab-content { padding-top:8px }
+.spacer { flex:1 }
+.mt-8  { margin-top:8px }
+.mt-10 { margin-top:10px }
+.mt-12 { margin-top:12px }
+.mt-16 { margin-top:16px }
 
-.row-chevron { color: var(--border2); font-size: 0.75rem; flex-shrink: 0; margin-left: 4px; }
-.recipe-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
+.cat-filter-wrap { margin:-4px -16px 0; padding:6px 0 0; background:var(--surface) }
+.cat-chips { display:flex; gap:8px; overflow-x:auto; padding:0 16px 2px; scrollbar-width:none }
+.cat-chips::-webkit-scrollbar { display:none }
+.cat-chip { flex-shrink:0; padding:8px 16px; border-radius:20px; border:1.5px solid var(--border); background:#fff; font-size:.76rem; font-weight:700; color:var(--muted); cursor:pointer; min-height:36px }
+.cat-chip.active { background:var(--brown); color:#fff; border-color:var(--brown) }
+
+.row-chevron { color:var(--border2); font-size:.75rem; flex-shrink:0; margin-left:4px }
+.recipe-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:.95rem; flex-shrink:0 }
+.recipe-price  { color:var(--green); font-weight:700; font-family:var(--mono) }
+.recipe-dot    { color:var(--border2) }
+.recipe-profit { font-size:.75rem; color:var(--brown-mid); font-weight:700 }
+.recipe-profit.negative { color:var(--red) }
+.recipe-type-tag { flex-shrink:0 }
+
+.swipe-btn { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; width:60px; height:100%; border:none; color:#fff; font-size:.64rem; font-weight:800; letter-spacing:.3px; cursor:pointer; text-transform:uppercase }
+.swipe-btn i { font-size:1.1rem }
+.swipe-btn.edit { background:var(--gold-dark) }
+.swipe-btn.del  { background:#dc2626 }
+.swipe-btn:active { filter:brightness(.88) }
+
+/* ── Formulário: Seções ── */
+.form-section {
+  padding: 16px;
+  margin: 0 -20px;
+  border-bottom: 8px solid var(--bg);
+}
+.form-section:first-of-type { border-top: 8px solid var(--bg); margin-top: -18px }
+.form-section:last-of-type  { border-bottom: none; margin-bottom: -18px }
+.form-section .fg:last-child { margin-bottom: 0 }
+
+.form-section-label {
+  font-size: .72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  color: var(--gold-dark);
+  margin-bottom: 14px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: .95rem;
+  gap: 6px;
+}
+.form-section-label i { font-size: .8rem; color: var(--brown-mid) }
+.label-opt { font-size: .75rem; font-weight: 500; color: var(--muted); text-transform: none; letter-spacing: 0 }
+
+/* ── Type toggle ── */
+.type-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.type-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 2px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  text-align: left;
+  transition: all var(--t);
+  min-height: 64px;
+}
+.type-btn:active { transform: scale(.97) }
+.type-btn.active {
+  border-color: var(--brown);
+  background: var(--gold-bg);
+}
+.type-ico  { font-size: 1.6rem; flex-shrink: 0; line-height: 1 }
+.type-label { font-size: .84rem; font-weight: 800; color: var(--brown-dark); line-height: 1.2 }
+.type-sub   { font-size: .72rem; color: var(--muted); margin-top: 2px }
+
+/* ── Categoria pills (horizontal scroll) ── */
+.cat-pill-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  margin: 0 -16px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+.cat-pill-row::-webkit-scrollbar { display: none }
+.cat-pill {
+  flex-shrink: 0;
+  padding: 9px 16px;
+  border-radius: var(--r-full);
+  border: 1.5px solid var(--border);
+  background: var(--cream);
+  color: var(--muted);
+  font-size: .8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  min-height: 40px;
+  transition: all var(--t);
+}
+.cat-pill.active {
+  background: var(--brown);
+  color: #fff;
+  border-color: var(--brown);
+}
+.cat-pill:active { transform: scale(.95) }
+
+/* ── Rendimento row ── */
+.render-row {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 1.2fr;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.render-qtd, .render-un, .render-peso { margin-bottom: 0 }
+
+/* ── Input com prefixo ── */
+.input-with-prefix {
+  display: flex;
+  align-items: stretch;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  transition: border-color var(--t);
+}
+.input-with-prefix:focus-within {
+  border-color: var(--brown-mid);
+  box-shadow: 0 0 0 3px rgba(122,69,32,.12);
+}
+.input-prefix {
+  display: flex;
+  align-items: center;
+  padding: 0 11px;
+  background: var(--cream-deep);
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 700;
+  border-right: 1.5px solid var(--border);
+  white-space: nowrap;
   flex-shrink: 0;
 }
-.recipe-price { color:var(--green); font-weight:700; font-family:var(--mono); }
-.recipe-dot   { color: var(--border2); }
-.recipe-profit { font-size:.75rem; color:var(--brown-mid); font-weight:700; }
-.recipe-profit.negative { color: var(--red); }
-.recipe-type-tag { margin-left: auto; flex-shrink: 0; }
-.cat-filter-wrap { margin: -4px -16px 0; padding: 6px 0 0; background: var(--surface); }
-.cat-chips { display: flex; gap: 8px; overflow-x: auto; padding: 0 16px 2px; scrollbar-width: none; }
-.cat-chips::-webkit-scrollbar { display: none; }
-.cat-chip { flex-shrink: 0; padding: 7px 14px; border-radius: 20px; border: 1px solid var(--border); background: #fff; font-size: 0.75rem; font-weight: 700; color: var(--muted); cursor: pointer; }
-.cat-chip.active { background: var(--brown); color: #fff; border-color: var(--brown); }
+.input-prefixed {
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  flex: 1;
+  min-width: 0;
+}
+.input-prefixed:focus { outline: none }
 
-/* Botões de swipe */
-.swipe-btn {
+/* ── Painel de lucratividade ── */
+.profit-panel {
+  background: var(--green-bg);
+  border: 1px solid var(--green-dim);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  margin-top: 12px;
   display: flex;
   flex-direction: column;
+  gap: 6px;
+}
+.profit-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.profit-row-total { padding-top: 8px }
+.profit-label { font-size: .82rem; color: var(--muted) }
+.profit-val   { font-size: .88rem; font-weight: 800; font-family: var(--mono); color: var(--brown) }
+.profit-val.cost { color: var(--orange) }
+.profit-val.gain { color: var(--green) }
+.profit-val.loss { color: var(--red) }
+.profit-divider { height: 1px; background: var(--green-dim); margin: 2px 0 }
+
+/* ── Ingredientes ── */
+.ing-empty-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  background: var(--cream);
+  border: 1.5px dashed var(--border2);
+  border-radius: var(--r-md);
+  font-size: .85rem;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.ing-empty-state i { font-size: 1.1rem; color: var(--brown-light); flex-shrink: 0 }
+.ing-empty-state strong { color: var(--brown-mid) }
+
+.ing-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.ing-row:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0 }
+
+/* Botão de seleção do ingrediente — linha inteira */
+.ing-pick-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: var(--r-sm);
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  text-align: left;
+  min-height: 48px;
+  transition: all var(--t);
+}
+.ing-pick-btn:active { transform: scale(.99); background: var(--gold-bg) }
+.pick-insumo { border-color: var(--border2) }
+.pick-base   { border-color: #93c5fd; background: #f0f8ff }
+.ing-pick-ico  { font-size: 1.1rem; flex-shrink: 0 }
+.ing-pick-nome {
+  flex: 1;
+  font-size: .88rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.ing-pick-chev { font-size: .75rem; color: var(--muted); flex-shrink: 0 }
+
+/* Controles de quantidade — linha abaixo */
+.ing-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px;
+}
+.ing-qty {
+  width: 90px;
+  flex-shrink: 0;
+  text-align: right;
+  padding: 10px 12px;
+  font-size: .95rem;
+  font-family: var(--mono);
+  font-weight: 700;
+}
+.ing-unit-tag {
+  flex: 1;
+  font-size: .82rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.ing-remove {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-sm);
+  border: 1.5px solid var(--red-bg);
+  background: var(--red-bg);
+  color: var(--red);
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  width: 60px;
-  height: 100%;
-  border: none;
-  color: #fff;
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.3px;
-  cursor: pointer;
-  text-transform: uppercase;
+  font-size: .9rem;
+  flex-shrink: 0;
+  transition: all var(--t);
 }
-.swipe-btn i { font-size: 1.1rem; }
-.swipe-btn.edit { background: var(--gold-dark, #b45309); }
-.swipe-btn.del  { background: #dc2626; }
-.swipe-btn:active { filter: brightness(0.88); }
+.ing-remove:active { background: #fecaca; transform: scale(.93) }
 
-/* Profit box */
-.profit-box { background:var(--green-bg); border:1px solid var(--green-dim); border-radius:var(--r-md); padding:12px 14px; margin:12px 0; display:flex; flex-direction:column; gap:5px; }
-.profit-details { display:flex; flex-direction:column; gap:5px; }
-.profit-divider { height:1px; background:var(--green-dim); margin:4px 0; }
-.profit-item { display:flex; justify-content:space-between; font-size:.85rem; color:var(--text); }
-.profit-item.highlight { padding-top:6px; border-top:1px dashed var(--green-dim); color:var(--green); font-size:.9rem; }
-.profit-item.highlight-warn { color:var(--orange); }
-.profit-item.highlight-ok   { color:var(--green); opacity:.8; }
+/* Botões de adicionar */
+.btn-add-ing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 13px;
+  border: 2px dashed var(--border2);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--brown-mid);
+  font-size: .875rem;
+  font-weight: 700;
+  margin-top: 8px;
+  min-height: 50px;
+  transition: all var(--t);
+}
+.btn-add-ing:active { background: var(--cream); border-color: var(--brown-light); transform: scale(.98) }
 
-.section-title { font-size:.82rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin:16px 0 8px; }
-.ing-empty { background:var(--cream); border:1px dashed var(--border2); border-radius:var(--r-md); padding:12px 14px; font-size:.85rem; color:var(--muted); line-height:1.6; margin-bottom:10px; }
-.ing-empty i { color:var(--brown-light); margin-right:4px; }
+.btn-ing-detail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 11px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--cream);
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 700;
+  margin-top: 6px;
+  min-height: 44px;
+  transition: all var(--t);
+}
+.btn-ing-detail:active { background: var(--cream-deep) }
 
-.ingredient-row { display:grid; grid-template-columns:minmax(0, 1fr) auto auto auto; gap:6px; margin-bottom:10px; align-items:center; }
-.ing-select-btn { min-width:0; display:flex; align-items:center; gap:6px; padding:10px; border-radius:var(--r-sm); border:1.5px solid var(--border); background:var(--surface); text-align:left; }
-.ing-select-btn:active { transform:scale(.98); }
-.ing-select-btn.is-insumo { border-color:var(--border2); }
-.ing-select-btn.is-base   { border-color:#93c5fd; background:#eff6ff; }
-.ing-badge   { font-size:1rem; flex-shrink:0; }
-.ing-nome    { flex:1; font-size:.85rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
-.ing-chevron { font-size:.7rem; color:var(--muted); flex-shrink:0; }
-.ing-qtd-group { display:flex; align-items:center; gap:2px; min-width:0; flex-shrink:0; }
-.ing-qtd-input { width:50px; padding:9px 6px; text-align:right; font-size:.9rem; }
-.ing-unidade { font-size:.75rem; color:var(--muted); min-width:12px; }
-.ing-del {
-  flex-shrink:0;
-  width:24px;
-  height:24px;
-  border:none;
-  border-radius:999px;
-  background:#fef2f2;
-  color:#dc2626;
-  font-size:.95rem;
-  font-weight:700;
-  line-height:1;
-  padding:0;
-}
-.ing-del:active { background:#fee2e2; transform:scale(.96); }
-.ing-add-btn { margin-top:6px; }
-.ing-details-btn { margin-top:8px; }
-.textarea-v  { resize:vertical; }
-
-.details-list { display:flex; flex-direction:column; gap:8px; }
-.details-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface); }
-.details-main { min-width:0; }
-.details-name { font-size:.9rem; font-weight:700; color:var(--text); }
-.details-sub { font-size:.78rem; color:var(--muted); margin-top:3px; }
-.details-value { font-size:.86rem; font-weight:800; color:var(--brown); white-space:nowrap; }
-.details-total { display:flex; align-items:center; justify-content:space-between; margin-top:14px; padding:12px 14px; border-radius:var(--r-sm); background:var(--cream); border:1px solid var(--border); font-size:.9rem; color:var(--brown-dark); }
-
-.picker-list { display:flex; flex-direction:column; gap:2px; }
-.picker-grupo-label { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); padding:12px 4px 6px; }
-.picker-row { display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:var(--r-sm); border:1px solid var(--border); background:var(--surface); cursor:pointer; }
-.picker-row:active { background:var(--gold-bg); }
-.picker-row-base   { border-color:#bfdbfe; background:#f0f8ff; }
-.picker-row-base:active { background:#dbeafe; }
-.picker-criar { border-color:var(--green-dim); background:var(--green-bg); }
-.picker-criar:active { background:#d1fae5; }
-.picker-criar-icon { width:32px; height:32px; border-radius:50%; background:var(--green); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.85rem; flex-shrink:0; }
-.picker-tipo-badge { font-size:1.1rem; flex-shrink:0; }
-.picker-row-info { flex:1; min-width:0; }
-.picker-row-nome { font-size:.9rem; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.picker-row-sub  { font-size:.78rem; color:var(--muted); margin-top:2px; }
-.picker-vazio    { text-align:center; color:var(--muted); font-size:.875rem; padding:24px 0; }
-.c-gold { color:var(--gold); }
-
-.inline-pair { display:flex; gap:10px; align-items:flex-start; }
-.flex-1 { flex:1; }
-.flex-3 { flex:3; }
-.segmented {
-  position:relative;
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:4px;
-  padding:4px;
-  border-radius:16px;
-  background:linear-gradient(180deg, #f7f0e5 0%, #f2e6d6 100%);
-  border:1px solid #eadfce;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.8);
-}
-.segmented-thumb {
-  position:absolute;
-  top:4px;
-  left:4px;
-  width:calc(50% - 6px);
-  height:calc(100% - 8px);
-  border-radius:12px;
-  background:linear-gradient(180deg, #fffdf9 0%, #fff6eb 100%);
-  box-shadow:0 8px 18px rgba(61,32,8,.10), 0 1px 2px rgba(61,32,8,.08);
-  transition:transform .22s ease;
-}
-.segmented.is-base .segmented-thumb { transform:translateX(calc(100% + 4px)); }
-.segmented-btn {
-  position:relative;
-  z-index:1;
-  min-height:52px;
-  border:none;
-  background:transparent;
-  border-radius:12px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-  padding:10px 12px;
-  color:var(--muted);
-  transition:color var(--t), transform var(--t);
-}
-.segmented-btn.active { color:var(--brown); }
-.segmented-btn:active,
-.choice-pill:active { transform:scale(.98); }
-.choice-icon { font-size:1rem; line-height:1; filter:saturate(.9); }
-.choice-text { font-size:.88rem; font-weight:800; letter-spacing:-.1px; }
-.chips-elegant {
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-}
-.choice-pill {
-  border:1px solid #e7dac7;
-  background:linear-gradient(180deg, #fffdfa 0%, #fbf4ea 100%);
-  color:var(--brown-mid);
-  min-height:42px;
-  border-radius:var(--r-full);
-  padding:9px 14px;
-  font-size:.83rem;
-  font-weight:700;
-  white-space:nowrap;
-  box-shadow:0 1px 0 rgba(255,255,255,.9), 0 1px 3px rgba(61,32,8,.04);
-  transition:all var(--t);
-}
-.choice-pill.active {
-  background:linear-gradient(135deg, var(--brown) 0%, #6a3a14 100%);
-  border-color:#5f3412;
-  color:#fff;
-  box-shadow:0 8px 16px rgba(61,32,8,.16);
-}
-.row-sub {
-  margin-top: 1px;
-  gap: 2px;
+/* ── Textarea preparo ── */
+.textarea-preparo {
+  resize: vertical;
+  min-height: 96px;
+  line-height: 1.6;
 }
 
+/* ── Footer ── */
+.btn-icon-only { min-width: 48px; padding: 12px }
+
+/* ── Detalhes de ingredientes (modal) ── */
+.details-list { display:flex; flex-direction:column; gap:8px }
+.details-row {
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:12px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface)
+}
+.details-main { min-width:0 }
+.details-name { font-size:.9rem; font-weight:700; color:var(--text) }
+.details-sub  { font-size:.78rem; color:var(--muted); margin-top:3px }
+.details-value { font-size:.86rem; font-weight:800; color:var(--brown); white-space:nowrap }
+.details-total {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-top:14px; padding:12px 14px; border-radius:var(--r-sm);
+  background:var(--cream); border:1px solid var(--border);
+  font-size:.9rem; color:var(--brown-dark)
+}
+
+/* ── Picker de ingredientes ── */
+.picker-list { display:flex; flex-direction:column; gap:4px }
+.picker-grupo-label { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); padding:12px 4px 6px }
+.picker-row {
+  display:flex; align-items:center; gap:10px; padding:13px 12px;
+  border-radius:var(--r-sm); border:1.5px solid var(--border);
+  background:var(--surface); cursor:pointer; min-height:56px; transition:background var(--t)
+}
+.picker-row:active { background:var(--gold-bg) }
+.picker-row-base   { border-color:#bfdbfe; background:#f0f8ff }
+.picker-row-base:active { background:#dbeafe }
+.picker-criar      { border-color:var(--green-dim); background:var(--green-bg) }
+.picker-criar:active { background:#d1fae5 }
+.picker-criar-icon {
+  width:36px; height:36px; border-radius:50%;
+  background:var(--green); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:.9rem; flex-shrink:0
+}
+.picker-tipo-badge { font-size:1.2rem; flex-shrink:0 }
+.picker-row-info { flex:1; min-width:0 }
+.picker-row-nome { font-size:.9rem; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.picker-row-sub  { font-size:.78rem; color:var(--muted); margin-top:2px }
+.picker-vazio    { text-align:center; color:var(--muted); font-size:.875rem; padding:28px 0 }
+.c-gold { color:var(--gold-dark) }
+
+@media (max-width:380px) {
+  .render-row { grid-template-columns: 1fr 1fr; }
+  .render-peso { grid-column: 1 / -1; }
+  .type-label { font-size:.8rem }
+}
 </style>
