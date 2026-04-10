@@ -121,10 +121,6 @@
                 aria-label="Aumentar quantidade">
                 <i class="fas fa-plus"></i>
               </button>
-              <button v-if="getQtdNoLote(r.uuid) > 0" class="btn-qty-sm btn-clear btn-qty-inline" type="button"
-                title="Remover" @click="limparQtdNoLote(r)" aria-label="Remover item do lote">
-                <i class="fas fa-trash-alt"></i>
-              </button>
             </div>
           </div>
         </div>
@@ -525,11 +521,6 @@ function addMeiaReceita(r) {
   }
 }
 
-function limparQtdNoLote(r) {
-  const idx = lote.value.findIndex(i => i.receita_id === r.uuid)
-  if (idx > -1) lote.value.splice(idx, 1)
-}
-
 function formatQtdNoLote(valor) {
   if (!valor) return '0'
   return Number.isInteger(valor) ? String(valor) : String(valor).replace('.', ',')
@@ -538,7 +529,6 @@ function formatQtdNoLote(valor) {
 function setQtdNoLote(r, raw) {
   const valor = Number(String(raw || '').replace(',', '.'))
   if (!Number.isFinite(valor) || valor <= 0) {
-    limparQtdNoLote(r)
     return
   }
 
