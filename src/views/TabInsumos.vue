@@ -77,7 +77,6 @@
 
     <!-- ─── Modal Ingrediente ──────────────────────────────────── -->
     <BaseModal v-if="modal === 'insumo'" :title="form.uuid ? 'Editar Ingrediente' : 'Novo Ingrediente'" @close="fecharModal">
-
       <!-- ── Seção: Identificação ── -->
       <div class="form-section">
         <div class="form-section-label"><i class="fas fa-tag"></i> Identificação</div>
@@ -354,11 +353,10 @@ async function excluirDireto(p) {
 
 /* ── Formulário: Seções ── */
 .form-section {
-  padding: 16px;
-  margin: 0 -20px;
+  padding: 16px 16px;
   border-bottom: 8px solid var(--bg);
 }
-.form-section:first-of-type { border-top: 8px solid var(--bg); margin-top: -18px; }
+.form-section:first-of-type { border-top: none }
 .form-section:last-of-type { border-bottom: none; margin-bottom: -18px; }
 .form-section .fg:last-child { margin-bottom: 0 }
 

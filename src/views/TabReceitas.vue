@@ -249,6 +249,7 @@
 
     <!-- ─── Modal Picker de Ingredientes ──────────────────────── -->
     <BaseModal v-if="modal === 'picker'" title="Adicionar Ingrediente" @close="fecharModal">
+      <div class="modal-inner">
       <div class="search-wrap mt-8">
         <i class="fas fa-search search-icon"></i>
         <input v-model="pickerSearch" class="search-input" type="search" placeholder="Buscar ou digitar para criar…" autofocus />
@@ -290,9 +291,11 @@
           Nenhum item encontrado
         </div>
       </div>
+      </div>
     </BaseModal>
 
     <BaseModal v-if="modal === 'ingredientes-detalhes'" title="Detalhes dos Ingredientes" @close="fecharModal">
+      <div class="modal-inner">
       <div v-if="detalhesIngredientes.length" class="details-list">
         <div v-for="item in detalhesIngredientes" :key="item.key" class="details-row">
           <div class="details-main">
@@ -309,6 +312,7 @@
         <strong>{{ R$(s.getCustoTotal(form)) }}</strong>
       </div>
 
+      </div>
       <template #foot>
         <button class="btn btn-secondary" @click="fecharModal">Fechar</button>
       </template>
@@ -648,12 +652,11 @@ async function excluirDieto(r) {
 
 /* ── Formulário: Seções ── */
 .form-section {
-  padding: 16px;
-  margin: 0 -20px;
+  padding: 16px 16px;
   border-bottom: 8px solid var(--bg);
 }
-.form-section:first-of-type { border-top: 8px solid var(--bg); margin-top: -18px }
-.form-section:last-of-type  { border-bottom: none; margin-bottom: -18px }
+.form-section:first-of-type { border-top: none }
+.form-section:last-of-type  { border-bottom: none; padding-bottom: 28px }
 .form-section .fg:last-child { margin-bottom: 0 }
 
 .form-section-label {
@@ -987,4 +990,6 @@ async function excluirDieto(r) {
   .render-peso { grid-column: 1 / -1; }
   .type-label { font-size:.8rem }
 }
+/* padding dos modals picker / detalhes */
+.modal-inner { padding: 16px 16px 24px }
 </style>

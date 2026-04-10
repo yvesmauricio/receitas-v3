@@ -79,14 +79,16 @@
 
     <!-- ─── Modal Etapa 1: Montagem de Lote ───────────────────── -->
     <BaseModal v-if="currentModal === 'montagem'" title="Novo Lote" @close="fecharModal">
-      <div class="cat-filter-wrap">
-        <div class="cat-chips">
-          <button v-for="c in listaCategorias" :key="c" class="cat-chip" :class="{ active: catAtiva === c }"
+      <!-- Filtros sticky, colados nas laterais -->
+      <div class="modal-filter-bar">
+        <div class="modal-chips">
+          <button v-for="c in listaCategorias" :key="c" class="chip" :class="{ active: catAtiva === c }"
             @click="catAtiva = c">{{ c }}</button>
         </div>
       </div>
-
-      <div class="batch-planning mt-12">
+      <!-- Conteúdo com padding -->
+      <div class="montagem-body">
+      <div class="batch-planning">
         <div class="section-label">📋 Selecione as Receitas</div>
         <div class="planned-items">
           <div v-for="r in receitasFiltradas" :key="r.uuid" class="plan-card">
@@ -121,11 +123,15 @@
                 aria-label="Aumentar quantidade">
                 <i class="fas fa-plus"></i>
               </button>
+              <button v-if="getQtdNoLote(r.uuid) > 0" class="btn-qty-sm btn-clear btn-qty-inline" type="button"
+                title="Remover" @click="limparQtdNoLote(r)" aria-label="Remover item do lote">
+                <i class="fas fa-trash-alt"></i>
+              </button>
             </div>
           </div>
         </div>
       </div>
-
+      </div>
       <template #foot>
         <button class="btn btn-secondary" @click="fecharModal">Cancelar</button>
         <button class="btn btn-primary" :disabled="!lote.length" @click="abrirModal('cozinha')">
@@ -136,6 +142,7 @@
 
     <!-- ─── Modal Etapa 2: Ficha de Cozinha (Pesagem) ─────────── -->
     <BaseModal v-if="currentModal === 'cozinha'" title="Lista de Preparo" @close="fecharModal">
+      <div class="modal-inner">
       <div class="pesagem-header">
         <div class="pesagem-stat"><span>Lote:</span> <strong>{{ lote.length }} itens</strong></div>
         <div class="pesagem-stat"><span>Custo Est.:</span> <strong>{{ R$(custoTotalLote) }}</strong></div>
@@ -181,6 +188,7 @@
         </div>
       </div>
 
+            </div>
       <template #foot>
         <button class="btn btn-secondary" @click="fecharModal"><i class="fas fa-arrow-left"></i> Voltar</button>
         <button class="btn btn-primary" :disabled="saving" @click="confirmarLote">
@@ -521,6 +529,11 @@ function addMeiaReceita(r) {
   }
 }
 
+function limparQtdNoLote(r) {
+  const idx = lote.value.findIndex(i => i.receita_id === r.uuid)
+  if (idx > -1) lote.value.splice(idx, 1)
+}
+
 function formatQtdNoLote(valor) {
   if (!valor) return '0'
   return Number.isInteger(valor) ? String(valor) : String(valor).replace('.', ',')
@@ -529,6 +542,7 @@ function formatQtdNoLote(valor) {
 function setQtdNoLote(r, raw) {
   const valor = Number(String(raw || '').replace(',', '.'))
   if (!Number.isFinite(valor) || valor <= 0) {
+    limparQtdNoLote(r)
     return
   }
 
@@ -791,15 +805,15 @@ onMounted(() => setFiltro('7dias'))
 .pesagem-header {
   display: flex;
   gap: 10px;
-  padding: 12px 14px;
-  background: var(--cream);
-  border-radius: var(--r-md);
-  margin-bottom: 4px;
+  padding: 14px 16px 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
 }
 .pesagem-stat { font-size:.85rem; color:var(--muted) }
 .pesagem-stat strong { color:var(--brown); font-weight:800 }
 
-.sheet-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--shadow-sm) }
+.sheet-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--shadow-sm); margin:0 16px }
 .sheet-body { padding:14px }
 
 .batch-group { margin-bottom:16px }
@@ -864,12 +878,25 @@ onMounted(() => setFiltro('7dias'))
 .swipe-btn i { font-size:1.1rem }
 .swipe-btn:active { filter:brightness(.85) }
 .swipe-btn.estornar { background:var(--orange) }
-.cat-filter-wrap { margin:-4px -16px 0; padding:6px 0 0; background:var(--surface) }
-.cat-chips { display:flex; gap:8px; overflow-x:auto; padding:0 16px 2px; scrollbar-width:none }
-.cat-chips::-webkit-scrollbar { display:none }
-.cat-chip { flex-shrink:0; padding:8px 16px; border-radius:20px; border:1.5px solid var(--border); background:#fff; font-size:.76rem; font-weight:700; color:var(--muted); cursor:pointer; min-height:36px }
-.cat-chip.active { background:var(--brown); color:#fff; border-color:var(--brown) }
+/* ── Barra de filtros sticky (edge-to-edge) ── */
+.modal-filter-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 0 0;
+}
+.modal-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0 16px 12px;
+}
+.modal-chips::-webkit-scrollbar { display: none }
 .planned-items { display:flex; flex-direction:column }
+.montagem-body { padding: 16px 16px 16px }
 .empty { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:52px 24px; text-align:center; gap:10px }
 .empty i { font-size:2.8rem; color:var(--border2); margin-bottom:4px }
 .empty h3 { font-size:.95rem; font-weight:700; color:var(--muted) }

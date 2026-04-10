@@ -13,7 +13,7 @@
 
     <!-- ─── Modal Configurações ──────────────────────────────── -->
     <BaseModal v-if="s.modal?.id === 'settings'" title="Configurações" @close="closeSettings">
-
+      <div class="modal-inner">
       <div class="settings-section"><i class="fas fa-store"></i> Empresa</div>
       <div class="fg">
         <label class="label">Nome</label>
@@ -74,6 +74,7 @@
         </button>
       </div>
 
+      </div><!-- /modal-inner -->
       <template #foot>
         <button class="btn btn-secondary" @click="closeSettings">Cancelar</button>
         <button class="btn btn-primary" @click="salvarConfig">Salvar</button>
@@ -165,6 +166,9 @@ watch(() => s.modal?.id, (next, prev) => {
 </script>
 
 <style scoped>
+.modal-inner {
+  padding: 16px 20px;
+}
 .cfg-hint {
   font-size: .8rem;
   color: var(--muted);
