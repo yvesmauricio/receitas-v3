@@ -21,5 +21,6 @@ const nav = [
   { id: 'receitas', icon: 'fas fa-book-open',   label: 'Receitas' },
   { id: 'producao', icon: 'fas fa-industry',    label: 'Produção' },
   { id: 'painel',   icon: 'fas fa-chart-pie',   label: 'Painel' },
+  { id: 'cozinha',  icon: 'fas fa-utensils',   label: 'Cozinha' }, 
 ]
 </script>

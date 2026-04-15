@@ -7,6 +7,7 @@
       <TabReceitas  v-show="s.tab === 'receitas'" />
       <TabProducao  v-show="s.tab === 'producao'" />
       <TabPainel    v-show="s.tab === 'painel'" />
+      <TabCozinha   v-show="s.tab === 'cozinha'" />
     </main>
 
     <AppNav />
@@ -112,6 +113,8 @@ import TabInsumos   from './views/TabInsumos.vue'
 import TabReceitas  from './views/TabReceitas.vue'
 import TabProducao  from './views/TabProducao.vue'
 import TabPainel    from './views/TabPainel.vue'
+import TabCozinha   from './views/TabCozinha.vue'
+
 import { pushOverlayHistory, closeOverlayHistory } from './composables/overlayHistory.js'
 
 const s = useStore()
