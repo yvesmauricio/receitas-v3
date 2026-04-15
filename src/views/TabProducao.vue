@@ -37,7 +37,7 @@
           </button>
 
           <div v-if="isGrupoAberto(grupo.id)" class="production-card-body">
-            <SwipeRow v-for="p in grupo.itens" :key="p.uuid || p.id" :row-id="p.uuid || p.id" :width="80">
+            <SwipeRow v-for="p in grupo.itens" :key="p.uuid || p.id" :row-id="p.uuid || p.id" :width="90">
               <div class="list-row">
                 <div class="action-ico flex-no-shrink mt-4" :class="p.eh_intermediaria ? 'ico-blue' : 'ico-gold'">
                   <i :class="p.eh_intermediaria ? 'fas fa-blender' : 'fas fa-cookie-bite'"></i>
@@ -112,6 +112,10 @@
               </div>
             </div>
             <div class="qty-ctrl-sm">
+              <button v-if="getQtdNoLote(r.uuid) > 0" class="btn-qty-sm btn-clear btn-qty-inline" type="button"
+                title="Remover" @click="limparQtdNoLote(r)" aria-label="Remover item do lote">
+                <i class="fas fa-trash-alt"></i>
+              </button>
               <button class="btn-qty-sm" type="button" @click="alterarQtdNoLote(r, -1)"
                 aria-label="Diminuir quantidade">
                 <i class="fas fa-minus"></i>
@@ -122,10 +126,6 @@
               <button class="btn-qty-sm btn-qty-primary" type="button" @click="alterarQtdNoLote(r, 1)"
                 aria-label="Aumentar quantidade">
                 <i class="fas fa-plus"></i>
-              </button>
-              <button v-if="getQtdNoLote(r.uuid) > 0" class="btn-qty-sm btn-clear btn-qty-inline" type="button"
-                title="Remover" @click="limparQtdNoLote(r)" aria-label="Remover item do lote">
-                <i class="fas fa-trash-alt"></i>
               </button>
             </div>
           </div>
@@ -148,20 +148,35 @@
         <div class="pesagem-stat"><span>Custo Est.:</span> <strong>{{ R$(custoTotalLote) }}</strong></div>
       </div>
 
-      <div class="sheet-card mt-12">
+      <div class="sheet-card mt-16">
         <div class="sheet-body">
-          <div v-for="(item, idx) in loteComIngredientes" :key="idx" class="batch-group">
-            <div class="section-label group-title">
-              <i class="fas fa-utensils"></i> {{ item.nome }} ({{ item.qtd_produzir }} {{ item.unidade }})
-            </div>
-            <div class="checklist mb-12">
-              <div v-for="ing in item.ingredientes" :key="ing.uid" class="check-item"
-                :class="{ 'done': checklist[ing.uid] }" @click="checklist[ing.uid] = !checklist[ing.uid]">
-                <div class="check-box"><i class="fas" :class="checklist[ing.uid] ? 'fa-check-square' : 'fa-square'"></i>
+          <div v-for="(item, idx) in loteComIngredientes" :key="item.uid" class="prep-card">
+            <button class="prep-card-head" type="button" @click="togglePreparoItem(item.uid)">
+              <div class="prep-card-summary">
+                <div class="group-title">
+                  <i class="fas fa-utensils"></i>
+                  {{ item.nome }}
                 </div>
-                <div class="check-info">
-                  <div class="check-name">{{ ing.nome }}</div>
-                  <div class="check-val">{{ fmtQ(ing.total, ing.unidade) }}</div>
+                <div class="prep-meta">
+                  <span>{{ fmtQ(item.qtd_produzir, item.unidade) }}</span>
+                  <span v-if="item.qtdRecheio" class="prep-chip">Recheio {{ fmtQ(item.qtdRecheio, item.unidadeRecheio) }}</span>
+                  <span v-if="item.qtdChocolate" class="prep-chip">Chocolate {{ fmtQ(item.qtdChocolate, item.unidadeChocolate) }}</span>
+                </div>
+              </div>
+              <i class="fas fa-chevron-down prep-chevron" :class="{ open: isPreparoItemAberto(item.uid) }"></i>
+            </button>
+
+            <div v-if="isPreparoItemAberto(item.uid)" class="prep-card-body">
+              <div v-for="ing in item.ingredientes" :key="ing.uid" class="prep-ingredient-row">
+                <div class="prep-ingredient-main">
+                  <div class="prep-ingredient-name">{{ ing.nome }}</div>
+                  <div class="prep-ingredient-qty">{{ fmtQ(ing.total, ing.unidade) }}</div>
+                </div>
+                <div v-if="ing.subIngredientes?.length" class="prep-sublist">
+                  <div v-for="sub in ing.subIngredientes" :key="sub.uid" class="prep-subitem">
+                    <span>{{ sub.nome }}</span>
+                    <strong>{{ fmtQ(sub.total, sub.unidade) }}</strong>
+                  </div>
                 </div>
               </div>
             </div>
@@ -198,56 +213,65 @@
       </template>
     </BaseModal>
 
-    <BaseModal v-if="currentModal === 'cozinha-historico'" title="Lista de Preparo do Lote" @close="fecharModal">
+    <BaseModal v-if="currentModal === 'cozinha-historico'" title="Lista de Preparo do Lote" @close="fecharModal" class="modal-cozinha-historico">
+      <div class="modal-inner">
       <div class="pesagem-header">
         <div class="pesagem-stat"><span>Lote:</span> <strong>{{ loteHistorico.length }} itens</strong></div>
-        <div class="pesagem-stat"><span>Data:</span> <strong>{{ historicoGrupo ? dataHoraBR(historicoGrupo.data) : '-'
-            }}</strong></div>
+        <div class="pesagem-stat"><span>Custo Est.:</span> <strong>{{ R$(historicoGrupo?.custoTotal || 0) }}</strong></div>
       </div>
 
-      <template v-if="historicoInsumosGlobais.length">
-        <div class="section-label group-title mt-16 highlight-gold">
-          <i class="fas fa-fill-drip"></i> Total para Cobertura / Uso Geral
-        </div>
-        <div class="global-summary">
-          <div v-for="g in historicoInsumosGlobais" :key="g.id" class="global-item">
-            <span>{{ g.nome }}</span>
-            <strong>{{ fmtQ(g.total, g.unidade) }}</strong>
-          </div>
-        </div>
-      </template>
-
-      <div class="sheet-card mt-12">
+      <div class="sheet-card mt-16">
         <div class="sheet-body">
-          <div v-for="item in loteHistoricoComIngredientes" :key="item.uid" class="batch-group">
-            <div class="section-label group-title">
-              <i class="fas fa-utensils"></i> {{ item.nome }} ({{ item.qtd_produzir }} {{ item.unidade }})
-            </div>
-
-            <div v-if="item.ingredientes.length" class="checklist mb-12">
-              <div v-for="ing in item.ingredientes" :key="ing.uid" class="check-item"
-                :class="{ 'done': historicoChecklist[ing.uid] }"
-                @click="historicoChecklist[ing.uid] = !historicoChecklist[ing.uid]">
-                <div class="check-box"><i class="fas"
-                    :class="historicoChecklist[ing.uid] ? 'fa-check-square' : 'fa-square'"></i></div>
-                <div class="check-info">
-                  <div class="check-name">{{ ing.nome }}</div>
-                  <div class="check-val">{{ fmtQ(ing.total, ing.unidade) }}</div>
+          <div v-for="item in loteHistoricoComIngredientes" :key="item.uid" class="prep-card">
+            <button class="prep-card-head" type="button" @click="toggleHistoricoItem(item.uid)">
+              <div class="prep-card-summary">
+                <div class="group-title">
+                  <i class="fas fa-utensils"></i>
+                  {{ item.nome }}
+                </div>
+                <div class="prep-meta">
+                  <span>{{ fmtQ(item.qtd_produzir, item.unidade) }}</span>
+                  <span v-if="item.qtdRecheio" class="prep-chip">Recheio {{ fmtQ(item.qtdRecheio, item.unidadeRecheio) }}</span>
+                  <span v-if="item.qtdChocolate" class="prep-chip">Chocolate {{ fmtQ(item.qtdChocolate, item.unidadeChocolate) }}</span>
                 </div>
               </div>
-            </div>
+              <i class="fas fa-chevron-down prep-chevron" :class="{ open: isHistoricoItemAberto(item.uid) }"></i>
+            </button>
 
-            <div v-else class="history-empty-ing mb-12">
-              Receita não encontrada no cadastro atual para reconstruir os ingredientes desse item.
-            </div>
+            <div v-if="isHistoricoItemAberto(item.uid)" class="prep-card-body">
+              <div v-if="item.ingredientes.length" class="prep-ingredient-list">
+                <div v-for="ing in item.ingredientes" :key="ing.uid" class="prep-ingredient-row">
+                  <div class="prep-ingredient-main">
+                    <div class="prep-ingredient-name">{{ ing.nome }}</div>
+                    <div class="prep-ingredient-qty">{{ fmtQ(ing.total, ing.unidade) }}</div>
+                  </div>
+                  <div v-if="ing.subIngredientes?.length" class="prep-sublist">
+                    <div v-for="sub in ing.subIngredientes" :key="sub.uid" class="prep-subitem">
+                      <span>{{ sub.nome }}</span>
+                      <strong>{{ fmtQ(sub.total, sub.unidade) }}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
+              <div v-else class="history-empty-ing mb-12">
+                Receita não encontrada no cadastro atual para reconstruir os ingredientes desse item.
+              </div>
+            </div>
           </div>
-          <div v-if="historicoAviso" class="history-note mt-12">
-            <i class="fas fa-circle-info"></i>
-            <span>{{ historicoAviso }}</span>
-          </div>
+
+          <template v-if="historicoInsumosGlobais.length">
+            <div class="section-label group-title mt-16 highlight-gold">
+              <i class="fas fa-fill-drip"></i> Total para Cobertura / Uso Geral
+            </div>
+            <div class="global-summary">
+              <div v-for="g in historicoInsumosGlobais" :key="g.id" class="global-item">
+                <span>{{ g.nome }}</span>
+                <strong>{{ fmtQ(g.total, g.unidade) }}</strong>
+              </div>
+            </div>
+          </template>
         </div>
-
       </div>
 
 
@@ -258,7 +282,7 @@
         </div>
       </div>
 
-
+      </div>
       <template #foot>
         <button class="btn btn-secondary" @click="fecharModal">Fechar</button>
       </template>
@@ -293,6 +317,83 @@ const historicoChecklist = reactive({})
 
 const listaCategorias = ['Todas', 'Trufa', 'Cone', 'Barra', 'Brownie', 'Bolo', 'Ovo', 'Base']
 const filtros = [{ v: 'hoje', l: 'Hoje' }, { v: '7dias', l: '7 dias' }, { v: '30dias', l: '30 dias' }]
+
+const preparoAberto = ref({})
+const historicoAberto = ref({})
+
+function isInsumoOculto(nome) {
+  const chave = normalizar(nome)
+  return ['etiqueta', 'embalagem', 'rotulo', 'rótulo'].some(term => chave.includes(term))
+}
+
+function buildIngredientLine(ing, factor, idx) {
+  const alvo = ing.tipo === 'receita'
+    ? s.receitas.find(x => x.uuid === ing.id)
+    : s.produtos.find(x => x.uuid === ing.id)
+
+  const nome = (ing.tipo === 'receita' ? '🥣 ' : '') + (alvo?.nome || 'Item removido')
+  const unidade = ing.tipo === 'receita' ? alvo?.unidade_rendimento : alvo?.unidade_base
+  const total = Number(ing.quantidade || 0) * factor
+
+  const subIngredientes = ing.tipo === 'receita' && alvo?.ingredientes
+    ? (alvo.ingredientes || [])
+      .filter(sub => !isInsumoOculto(sub.nome || sub.id))
+      .map((sub, subIdx) => {
+        const subAlvo = sub.tipo === 'receita'
+          ? s.receitas.find(x => x.uuid === sub.id)
+          : s.produtos.find(x => x.uuid === sub.id)
+        const subUnidade = sub.tipo === 'receita' ? subAlvo?.unidade_rendimento : subAlvo?.unidade_base
+        const subTotal = Number(sub.quantidade || 0) * total / (alvo.rendimento || 1)
+        return {
+          uid: `${idx}-${ing.id}-sub-${subIdx}`,
+          nome: sub.nome || (subAlvo?.nome || 'Item removido'),
+          total: subTotal,
+          unidade: subUnidade || ''
+        }
+      })
+    : []
+
+  return {
+    uid: `${idx}-${ing.id}`,
+    id: ing.id,
+    nome,
+    unidade: unidade || '',
+    total,
+    tipo: ing.tipo,
+    subIngredientes
+  }
+}
+
+function buildResumoItem(item, ingredientes) {
+  const chocolateIds = ingredientes.filter(ing => normalizar(ing.nome).match(/chocolate|cobertura|ganache/))
+  const recheioIds = ingredientes.filter(ing => ing.tipo === 'receita' || normalizar(ing.nome).includes('recheio'))
+
+  return {
+    ...item,
+    ingredientes,
+    qtdChocolate: chocolateIds.reduce((acc, ing) => acc + ing.total, 0),
+    unidadeChocolate: chocolateIds[0]?.unidade || 'g',
+    qtdRecheio: recheioIds.reduce((acc, ing) => acc + ing.total, 0),
+    unidadeRecheio: recheioIds[0]?.unidade || 'g',
+    prepItemsCount: ingredientes.length
+  }
+}
+
+function togglePreparoItem(uid) {
+  preparoAberto.value[uid] = !preparoAberto.value[uid]
+}
+
+function isPreparoItemAberto(uid) {
+  return preparoAberto.value[uid] ?? false
+}
+
+function toggleHistoricoItem(uid) {
+  historicoAberto.value[uid] = !historicoAberto.value[uid]
+}
+
+function isHistoricoItemAberto(uid) {
+  return historicoAberto.value[uid] ?? false
+}
 
 // ── Computados ────────────────────────────────────────────────
 const lista = computed(() => {
@@ -349,17 +450,11 @@ const receitasFiltradas = computed(() => {
 const loteComIngredientes = computed(() =>
   lote.value.map((item, idx) => {
     const fator = item.qtd_produzir / (item.rendimento_base || 1)
-    const ingredientes = (item.ingredientes || []).map(ing => {
-      const alvo = ing.tipo === 'receita' ? s.receitas.find(x => x.uuid === ing.id) : s.produtos.find(x => x.uuid === ing.id)
-      return {
-        uid: `${idx}-${ing.id}`,
-        id: ing.id,
-        nome: (ing.tipo === 'receita' ? '🥣 ' : '') + (alvo?.nome || 'Item removido'),
-        unidade: ing.tipo === 'receita' ? alvo?.unidade_rendimento : alvo?.unidade_base,
-        total: ing.quantidade * fator
-      }
-    })
-    return { ...item, ingredientes }
+    const ingredientes = (item.ingredientes || [])
+      .filter(ing => !isInsumoOculto(ing.nome || ing.id))
+      .map(ing => buildIngredientLine(ing, fator, idx))
+
+    return buildResumoItem({ ...item, uid: `${item.receita_id}-${idx}` }, ingredientes)
   })
 )
 
@@ -412,17 +507,11 @@ const loteHistorico = computed(() => {
 const loteHistoricoComIngredientes = computed(() =>
   loteHistorico.value.map(item => {
     const fator = item.qtd_produzir / (item.rendimento_base || 1)
-    const ingredientes = (item.ingredientes || []).map(ing => {
-      const alvo = ing.tipo === 'receita' ? s.receitas.find(x => x.uuid === ing.id) : s.produtos.find(x => x.uuid === ing.id)
-      return {
-        uid: `${item.uid}-${ing.tipo}-${ing.id}`,
-        id: ing.id,
-        nome: (ing.tipo === 'receita' ? '🥣 ' : '') + (alvo?.nome || 'Item removido'),
-        unidade: ing.tipo === 'receita' ? alvo?.unidade_rendimento : alvo?.unidade_base,
-        total: ing.quantidade * fator
-      }
-    })
-    return { ...item, ingredientes }
+    const ingredientes = (item.ingredientes || [])
+      .filter(ing => !isInsumoOculto(ing.nome || ing.id))
+      .map(ing => buildIngredientLine(ing, fator, item.uid))
+
+    return buildResumoItem(item, ingredientes)
   })
 )
 
@@ -710,7 +799,7 @@ onMounted(() => setFiltro('7dias'))
 .production-card-chevron { color:var(--muted); font-size:.85rem; transition:transform var(--t) }
 .production-card-chevron.open { transform:rotate(180deg) }
 
-.production-card-body { border-top:1px solid var(--border); background:var(--bg) }
+.production-card-body { border-top:1px solid var(--border); background:var(--bg); padding: 10px 0; }
 
 /* ── Formulário: Montagem de Lote ── */
 .batch-planning { display:flex; flex-direction:column; gap:2px }
@@ -793,6 +882,7 @@ onMounted(() => setFiltro('7dias'))
   background: var(--surface);
   color: var(--text);
   min-height: 36px;
+  appearance: none;
   -moz-appearance: textfield;
 }
 .qty-input::-webkit-outer-spin-button,
@@ -802,6 +892,7 @@ onMounted(() => setFiltro('7dias'))
 .btn-qty-inline { margin-left: 2px }
 
 /* ── Modal: Cozinha ── */
+
 .pesagem-header {
   display: flex;
   gap: 10px;
@@ -814,24 +905,186 @@ onMounted(() => setFiltro('7dias'))
 .pesagem-stat strong { color:var(--brown); font-weight:800 }
 
 .sheet-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--shadow-sm); margin:0 16px }
-.sheet-body { padding:14px }
+.sheet-body { padding:14px}
 
 .batch-group { margin-bottom:16px }
 .batch-group:last-child { margin-bottom:0 }
 .group-title { color:var(--brown-mid) !important }
+
+.prep-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.prep-card-head {
+  width: 100%;
+  border: none;
+  background: var(--surface);
+  padding: 16px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  transition: background var(--t);
+}
+
+.prep-card-head:active { background: var(--gold-bg) }
+
+.prep-card-summary { flex: 1; min-width: 0 }
+.prep-card-summary .group-title {
+  font-size: .92rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.prep-badge {
+  background: var(--cream);
+  color: var(--brown-mid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  padding: 4px 10px;
+  font-size: .72rem;
+  font-weight: 700;
+}
+
+.prep-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: .78rem;
+  color: var(--muted);
+  align-items: center;
+}
+
+.prep-chip {
+  background: var(--cream);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  padding: 5px 10px;
+  font-size: .74rem;
+  font-weight: 700;
+}
+
+.prep-chevron {
+  font-size: .88rem;
+  color: var(--muted);
+  transition: transform var(--t);
+}
+
+.prep-chevron.open { transform: rotate(180deg) }
+
+.prep-card-body {
+  background: var(--cream);
+  padding: 12px 14px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.prep-ingredient-row {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.prep-ingredient-row:last-child { border-bottom: none }
+
+.prep-ingredient-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.prep-ingredient-name {
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--brown-dark);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prep-ingredient-qty {
+  font-size: .88rem;
+  font-weight: 700;
+  font-family: var(--mono);
+  color: var(--brown);
+}
+
+.prep-sublist {
+  margin-top: 8px;
+  padding-left: 16px;
+  display: grid;
+  gap: 6px;
+}
+
+.prep-subitem {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: .82rem;
+  color: var(--muted);
+}
+
+.prep-subitem strong {
+  color: var(--brown);
+  font-family: var(--mono);
+}
+
+.global-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  margin-top: 16px;
+}
+
+.global-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.global-item span {
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--brown-dark);
+}
+
+.global-item strong {
+  font-size: .88rem;
+  font-weight: 700;
+  font-family: var(--mono);
+  color: var(--brown);
+}
 
 .checklist { display:flex; flex-direction:column; gap:4px }
 .check-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 11px 12px;
+  padding: 10px 4px;
   border-radius: var(--r-sm);
-  border: 1.5px solid var(--border);
-  background: var(--surface);
+  border: none;
+  background: transparent;
   cursor: pointer;
   min-height: 52px;
   transition: all var(--t);
+  border-bottom: 1px solid var(--border);
 }
 .check-item:active { background: var(--cream) }
 .check-item.done { background: var(--green-bg); border-color: var(--green-dim) }
@@ -874,7 +1127,15 @@ onMounted(() => setFiltro('7dias'))
 }
 
 /* ── Misc ── */
-.swipe-btn { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; width:60px; height:100%; border:none; color:#fff; font-size:.64rem; font-weight:800; text-transform:uppercase; transition:filter var(--t) }
+.swipe-btn {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  height:100%;
+}
+
 .swipe-btn i { font-size:1.1rem }
 .swipe-btn:active { filter:brightness(.85) }
 .swipe-btn.estornar { background:var(--orange) }
@@ -901,4 +1162,5 @@ onMounted(() => setFiltro('7dias'))
 .empty i { font-size:2.8rem; color:var(--border2); margin-bottom:4px }
 .empty h3 { font-size:.95rem; font-weight:700; color:var(--muted) }
 .mt-12-forced { margin-top:12px }
+
 </style>
