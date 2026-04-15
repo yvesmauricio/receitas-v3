@@ -444,10 +444,21 @@ function limparLote() {
 .check-main { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .check-name { font-weight: 700; font-size: 1rem; color: var(--brown); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .done .check-name { text-decoration: line-through; }
-.check-val { font-family: var(--mono); font-weight: 800; font-size: 1.1rem; color: var(--brown-dark); background: #fff; padding: 4px 8px; border-radius: var(--r-sm); border: 1px solid var(--border); }
+.check-val { 
+  font-family: var(--mono); 
+  font-weight: 800; 
+  font-size: 0.95rem; 
+  color: var(--brown-dark); 
+  background: #fff; 
+  padding: 2px 6px; 
+  border-radius: var(--r-sm); 
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  margin-left: 8px;
+}
 
 @media (max-width: 400px) {
-  .check-info { flex-direction: column; align-items: flex-start; gap: 4px; }
-  .check-val { width: 100%; text-align: center; }
+  .check-name { font-size: 0.9rem; }
+  .check-val { font-size: 0.85rem; padding: 2px 4px; }
 }
 </style>
