@@ -1,25 +1,29 @@
 <template>
-  <div class="tab-cozinha">
-    <div class="tab-hdr">
-      <div class="tab-hdr-top">
-        <h2 class="tab-title"><i class="fas fa-layer-group"></i> Lote de Produção</h2>
-        <button v-if="lote.length" class="btn-sec-sm" @click="limparLote"><i class="fas fa-trash"></i> Limpar</button>
-      </div>
-    </div>
+  <div class="tab-cozinha view-maximized">
+    <header class="view-header">
+      <button class="view-back-btn" @click="s.setTab('producao')" aria-label="Voltar">
+        <i class="fas fa-arrow-left"></i>
+      </button>
+      <h2 class="view-title"><i class="fas fa-utensils"></i> Cozinha</h2>
+      <div class="spacer"></div>
+      <button v-if="lote.length" class="view-action-btn" @click="limparLote" title="Limpar Lote">
+        <i class="fas fa-trash-alt"></i>
+      </button>
+    </header>
 
-    <!-- Filtro por Categoria (Horizontal Scroll) -->
-    <div class="cat-filter-wrap">
-      <div class="cat-chips">
+    <div class="modal-filter-bar">
+      <div class="modal-chips">
         <button 
           v-for="c in categorias" 
           :key="c" 
-          class="cat-chip" 
+          class="chip" 
           :class="{ active: catAtiva === c }"
           @click="catAtiva = c"
         >{{ c }}</button>
       </div>
     </div>
 
+    <div class="view-body">
     <!-- Grade de Seleção Rápida (Otimizada para toque) -->
     <div class="quick-add-grid">
       <button v-for="r in receitasFiltradas" :key="r.uuid" class="qa-btn" @click="adicionarAoLote(r)">
@@ -116,6 +120,7 @@
       <h3>Lote Vazio</h3>
       <p>Adicione receitas acima para calcular o preparo total.</p>
     </div>
+    </div>
   </div>
 </template>
 
@@ -123,12 +128,14 @@
 import { ref, computed, reactive, watch } from 'vue'
 import { useStore } from '../store.js'
 import { fmtQtd as fmtQ, nowLocal, normalizar } from '../utils.js'
+import { useConfirm } from '../composables/useConfirm.js'
 
 const s = useStore()
+const confirm = useConfirm()
 const lote = ref([])
 const checklist = reactive({})
-const categorias = ['Todas', 'Trufa', 'Cone', 'Barra', 'Brownie', 'Bolo', 'Ovo']
-const catAtiva = ref('Todas')
+const categorias = ['Todas', 'Trufa', 'Cone', 'Barra', 'Brownie', 'Bolo', 'Ovo', 'Base']
+const catAtiva = ref('Trufa')
 
 const receitasFiltradas = computed(() => {
   if (catAtiva.value === 'Todas') return s.receitas
@@ -255,7 +262,12 @@ const ingredientesAgrupados = computed(() => {
 })
 
 async function finalizarLote() {
-  if (!confirm('Deseja registrar toda essa produção no histórico?')) return
+  const ok = await confirm.ask(
+    'Deseja registrar toda essa produção no histórico?',
+    { title: 'Finalizar Lote', icon: 'fas fa-check-double', confirmLabel: 'Registrar' }
+  )
+  if (!ok) return
+
   const data = nowLocal()
   const producoes = lote.value.map(item => ({
     receita_id: item.receita_id,
@@ -284,15 +296,82 @@ function limparLote() {
 </script>
 
 <style scoped>
-.tab-cozinha { padding-bottom: 100px; }
+.view-maximized {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+.view-header {
+  height: 56px;
+  background: var(--brown-dark);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border-bottom: none;
+  flex-shrink: 0;
+}
+.view-back-btn {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 1.15rem;
+  border-radius: 50%;
+}
+.view-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: -0.02em;
+}
+.view-action-btn {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1rem;
+}
+.view-body {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 40px;
+}
 
-.cat-filter-wrap { padding: 0 0 12px 0; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
-.cat-chips { display: flex; gap: 8px; overflow-x: auto; padding: 0 16px; scrollbar-width: none; }
-.cat-chips::-webkit-scrollbar { display: none; }
-.cat-chip { flex-shrink: 0; padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border); background: #fff; font-size: 0.8rem; font-weight: 700; color: var(--muted); cursor: pointer; transition: all 0.2s; }
-.cat-chip.active { background: var(--brown); color: #fff; border-color: var(--brown); }
+.modal-filter-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 0 0;
+  flex-shrink: 0;
+}
+.modal-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0 16px 12px;
+}
+.modal-chips::-webkit-scrollbar { display: none; }
 
-.quick-add-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; padding: 0 16px 16px; border-bottom: 1px solid var(--border); }
+.spacer { flex: 1; }
+
+.quick-add-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; padding: 16px; border-bottom: 1px solid var(--border); }
 .qa-btn { background: #fff; border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: var(--shadow-sm); cursor: pointer; }
 .qa-btn:active { background: var(--gold-bg); transform: scale(0.95); }
 .qa-name { font-size: .85rem; font-weight: 700; color: var(--brown); text-align: center; line-height: 1.2; }
@@ -363,7 +442,7 @@ function limparLote() {
 .done .check-box { color: var(--green); }
 .check-info { flex: 1; display: flex; flex-direction: column; }
 .check-main { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.check-name { font-weight: 700; font-size: 1rem; color: var(--brown); }
+.check-name { font-weight: 700; font-size: 1rem; color: var(--brown); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .done .check-name { text-decoration: line-through; }
 .check-val { font-family: var(--mono); font-weight: 800; font-size: 1.1rem; color: var(--brown-dark); background: #fff; padding: 4px 8px; border-radius: var(--r-sm); border: 1px solid var(--border); }
 
