@@ -64,7 +64,7 @@
       class="stepper-popup"
       :style="{ left: stepper.x + 'px', top: stepper.y + 'px' }"
     >
-      <button class="stepper-btn" @click="stepperAjustar(-1)">−</button>
+      <button class="stepper-btn" @pointerdown.prevent="iniciarHoldMenos" @pointerup="pararHold" @pointerleave="pararHold">−</button>
       <span class="stepper-val">{{ stepper.qtd }}</span>
       <button class="stepper-btn" @click="stepperAjustar(1)">+</button>
     </div>
@@ -174,6 +174,31 @@ const lote = ref([])
 const checklist = reactive({})
 const categorias = ['Todas', 'Trufa', 'Cone', 'Barra', 'Brownie', 'Bolo', 'Ovo', 'Base']
 const catAtiva = ref('Trufa')
+
+const holdInterval = ref(null)
+const holdSpeed = ref(300) // começa mais lento
+
+function iniciarHoldMenos() {
+  if (!stepper.receita) return
+
+  holdSpeed.value = 300
+
+  function tick() {
+    stepperAjustar(-1)
+
+    // aceleração progressiva
+    holdSpeed.value = Math.max(60, holdSpeed.value * 0.75)
+
+    holdInterval.value = setTimeout(tick, holdSpeed.value)
+  }
+
+  tick()
+}
+
+function pararHold() {
+  clearTimeout(holdInterval.value)
+  holdInterval.value = null
+}
 
 // MELHORIA 4: Registro de uso recente (estado local, não persiste)
 const usageOrder = ref([])
@@ -300,6 +325,7 @@ function fecharStepper() {
   clearTimeout(stepper.inactivityTimer)
   onBeforeUnmount(() => {
     document.removeEventListener('pointerdown', onDocPointerDown)
+    pararHold()
   })
 }
 
@@ -308,6 +334,7 @@ function onDocPointerDown(e) {
 }
 
 function stepperAjustar(delta) {
+  if (navigator.vibrate) navigator.vibrate(5)
   if (!stepper.receita) return
   if (delta > 0) {
       adicionarAoLote(stepper.receita)
