@@ -24,27 +24,88 @@
     </div>
 
     <div class="view-body">
-    <!-- Grade de Seleção Rápida (Otimizada para toque) -->
-<!-- MELHORIA 2 (badge) + 3 (feedback) + 4 (ordenação) + 1 (long press) -->
-<div class="quick-add-grid">
-  <button
-    v-for="r in receitasFiltradas"
-    :key="r.uuid"
-    class="qa-btn"
-    :class="{ 'qa-btn--inlote': qtdNoLote[r.uuid] }"
-    @click="onBtnClick(r, $event)"
-    @pointerdown="iniciarLongPress(r, $event)"
-    @pointerup="cancelarLongPress"
-    @pointercancel="cancelarLongPress"
-    @contextmenu.prevent
-  >
-    <!-- MELHORIA 2: Badge de quantidade -->
-    <span v-if="qtdNoLote[r.uuid]" class="qa-badge">{{ qtdNoLote[r.uuid] }}</span>
-    <span class="qa-name">{{ r.nome }}</span>
-    <div v-if="normalizar(r.nome).includes('trufa')" class="badge-shortcut">+1 Forma</div>
-    <div v-else class="badge-shortcut">+{{ r.rendimento }} {{ r.unidade_rendimento }}</div>
-  </button>
-</div>
+      <div class="quick-add-grid">
+        <button
+          v-for="r in receitasFiltradas"
+          :key="r.uuid"
+          class="qa-btn"
+          :class="{ 'qa-btn--inlote': qtdNoLote[r.uuid] }"
+          @click="onBtnClick(r, $event)"
+          @pointerdown="iniciarLongPress(r, $event)"
+          @pointerup="cancelarLongPress"
+          @pointercancel="cancelarLongPress"
+          @contextmenu.prevent
+        >
+          <span v-if="qtdNoLote[r.uuid]" class="qa-badge">{{ qtdNoLote[r.uuid] }}</span>
+          <span class="qa-name">{{ r.nome }}</span>
+          <div v-if="normalizar(r.nome).includes('trufa')" class="badge-shortcut">+1 Forma</div>
+          <div v-else class="badge-shortcut">+{{ r.rendimento }} {{ r.unidade_rendimento }}</div>
+        </button>
+      </div>
+
+      <div v-if="lote.length" class="batch-content">
+        <div class="section-label">📋 Itens no Lote</div>
+        <div class="planned-items">
+          <div v-for="(item, idx) in lote" :key="idx" class="plan-group">
+            <div class="plan-card">
+              <div class="plan-info" @click="item.aberto = !item.aberto">
+                <div class="plan-name">
+                  <i class="fas" :class="item.aberto ? 'fa-chevron-down' : 'fa-chevron-right'" style="font-size: 0.7rem; margin-right: 4px; color: var(--gold-dark)"></i>
+                  {{ item.nome }}
+                </div>
+                <div class="plan-sub">
+                  <strong style="color: var(--brown-dark)">{{ fmtQ(item.peso_total, 'g') }}</strong> • {{ item.qtd_produzir }} {{ item.unidade }}
+                </div>
+              </div>
+              <div class="qty-ctrl-sm">
+                <button class="btn-qty-sm" @click="ajustarQtd(idx, -1)">-</button>
+                <input type="number" class="qty-input-cozinha" :value="item.qtd_produzir" @change="e => atualizarQtdManual(idx, e.target.value)" inputmode="decimal" />
+                <button class="btn-qty-sm" @click="ajustarQtd(idx, 1)">+</button>
+              </div>
+            </div>
+            <div v-if="item.aberto" class="plan-details">
+              <div v-for="ing in calcularIngredientesItem(item)" :key="ing.id" class="plan-ing-row">
+                <div class="plan-ing-info">
+                  <span class="plan-ing-nome">{{ ing.nome }}</span>
+                  <span class="plan-ing-qtd">{{ fmtQ(ing.total, ing.unidade) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sheet-card mt-16">
+          <div class="sheet-body">
+            <div class="section-label">🥣 Total para pesar (Consolidado)</div>
+            <div class="checklist">
+              <div v-for="ing in ingredientesAgrupados" :key="ing.id" class="check-item" :class="{ 'done': checklist[ing.id] }" @click="checklist[ing.id] = !checklist[ing.id]">
+                <div class="check-box"><i class="fas" :class="checklist[ing.id] ? 'fa-check-square' : 'fa-square'"></i></div>
+                <div class="check-info">
+                  <div class="check-main">
+                    <div class="check-name">{{ ing.nome }}</div>
+                    <div class="check-val">{{ fmtQ(ing.total, ing.unidade) }}</div>
+                  </div>
+                <div v-if="ing.subIngredientes" class="plan-sub-list" style="margin-left:0; margin-top:6px;">
+                  <div v-for="sub in ing.subIngredientes" :key="sub.id" class="plan-sub-item">
+                    <span>└ {{ sub.nome }}</span>
+                    <span>{{ fmtQ(sub.total, sub.unidade) }}</span>
+                  </div>
+                </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-lg btn-full mt-16 mb-32" @click="finalizarLote">
+          <i class="fas fa-check-double"></i> Registrar Produção do Lote
+        </button>
+      </div>
+      <div v-else class="empty">
+        <i class="fas fa-mortar-pestle"></i>
+        <h3>Lote Vazio</h3>
+        <p>Adicione receitas acima para calcular o preparo total.</p>
+      </div>
+    </div>
 
 <!-- MELHORIA 3: Feedbacks flutuantes (+12 un) -->
 <Teleport to="body">
@@ -71,113 +132,26 @@
   </Transition>
 </Teleport>
 
-    <div v-if="lote.length" class="batch-content">
-      <!-- Lista de itens planejados -->
-      <div class="section-label">📋 Itens no Lote</div>
-      <div class="planned-items">
-        <div v-for="(item, idx) in lote" :key="idx" class="plan-group">
-          <div class="plan-card">
-            <div class="plan-info" @click="item.aberto = !item.aberto">
-              <div class="plan-name">
-                <i class="fas" :class="item.aberto ? 'fa-chevron-down' : 'fa-chevron-right'" style="font-size: 0.7rem; margin-right: 4px; color: var(--gold-dark)"></i>
-                {{ item.nome }}
-              </div>
-              <div class="plan-sub">
-                <strong style="color: var(--brown-dark)">{{ fmtQ(item.peso_total, 'g') }}</strong> • {{ item.qtd_produzir }} {{ item.unidade }}
-              </div>
-            </div>
-            <div class="qty-ctrl-sm">
-              <button class="btn-qty-sm" @click="ajustarQtd(idx, -1)">-</button>
-              <input 
-                type="number" 
-                class="qty-input-cozinha" 
-                :value="item.qtd_produzir" 
-                @change="e => atualizarQtdManual(idx, e.target.value)"
-                inputmode="decimal"
-              />
-              <button class="btn-qty-sm" @click="ajustarQtd(idx, 1)">+</button>
-            </div>
-          </div>
-          
-          <!-- Detalhes de Montagem (Ingredientes do item) -->
-          <div v-if="item.aberto" class="plan-details">
-            <div v-for="ing in calcularIngredientesItem(item)" :key="ing.id" class="plan-ing-row">
-              <div class="plan-ing-info">
-                <span class="plan-ing-nome">{{ ing.nome }}</span>
-                <span class="plan-ing-qtd">{{ fmtQ(ing.total, ing.unidade) }}</span>
-              </div>
-              <!-- Se for uma sub-receita (recheio), mostra os itens dela -->
-              <div v-if="ing.subIngredientes" class="plan-sub-list">
-                <div v-for="sub in ing.subIngredientes" :key="sub.id" class="plan-sub-item">
-                  <span>└ {{ sub.nome }}</span>
-                  <span>{{ fmtQ(sub.total, sub.unidade) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Pesagem Consolidada -->
-      <div class="sheet-card mt-16">
-        <div class="sheet-body">
-          <div class="section-label">🥣 Total para pesar (Consolidado)</div>
-          <div class="checklist">
-            <div v-for="ing in ingredientesAgrupados" 
-                 :key="ing.id" 
-                 class="check-item" 
-                 :class="{ 'done': checklist[ing.id] }"
-                 @click="checklist[ing.id] = !checklist[ing.id]">
-              <div class="check-box">
-                <i class="fas" :class="checklist[ing.id] ? 'fa-check-square' : 'fa-square'"></i>
-              </div>
-              <div class="check-info">
-                <div class="check-main">
-                  <div class="check-name">{{ ing.nome }}</div>
-                  <div class="check-val">{{ fmtQ(ing.total, ing.unidade) }}</div>
-                </div>
-                <div v-if="ing.subIngredientes" class="plan-sub-list" style="margin-left:0; margin-top:6px;">
-                  <div v-for="sub in ing.subIngredientes" :key="sub.id" class="plan-sub-item">
-                    <span>└ {{ sub.nome }}</span>
-                    <span>{{ fmtQ(sub.total, sub.unidade) }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <button class="btn btn-primary btn-lg btn-full mt-16 mb-32" @click="finalizarLote">
-        <i class="fas fa-check-double"></i> Registrar Produção do Lote
-      </button>
-    </div>
-
-    <div v-else class="empty">
-      <i class="fas fa-mortar-pestle"></i>
-      <h3>Lote Vazio</h3>
-      <p>Adicione receitas acima para calcular o preparo total.</p>
-    </div>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, reactive, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { useStore } from '../store.js'
 import { fmtQtd as fmtQ, nowLocal, normalizar } from '../utils.js'
 import { useConfirm } from '../composables/useConfirm.js'
 
 const s = useStore()
 const confirm = useConfirm()
+
 const lote = ref([])
 const checklist = reactive({})
 const categorias = ['Todas', 'Trufa', 'Cone', 'Barra', 'Brownie', 'Bolo', 'Ovo', 'Base']
 const catAtiva = ref('Trufa')
 
 const holdInterval = ref(null)
-const blockClick = ref(false)
-const holdSpeed = ref(300) // começa mais lento
+const blockClick = ref(false) 
+const holdSpeed = ref(300)
 
 function iniciarHoldMenos() {
   if (!stepper.receita) return
@@ -509,58 +483,13 @@ function limparLote() {
 </script>
 
 <style scoped>
-.view-maximized {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 2000;
-  background: var(--bg);
-  display: flex;
-  flex-direction: column;
-}
+.view-maximized { position: fixed; inset: 0; z-index: 2000; background: var(--bg); display: flex; flex-direction: column; }
 .view-header {
-  height: 56px;
-  background: var(--brown-dark);
-  display: flex;
-  align-items: center;
-  padding: 0 8px;
-  border-bottom: none;
-  flex-shrink: 0;
+  height: 56px; background: var(--brown-dark); display: flex; align-items: center; padding: 0 8px; border-bottom: none; flex-shrink: 0;
 }
-.view-back-btn {
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: #fff;
-  font-size: 1.15rem;
-  border-radius: 50%;
-}
-.view-title {
-  font-size: 1.2rem;
-  font-weight: 800;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  letter-spacing: -0.02em;
-}
-.view-action-btn {
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 1rem;
-}
+.view-back-btn { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: #fff; font-size: 1.15rem; border-radius: 50%; }
+.view-title { font-size: 1.2rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 10px; letter-spacing: -0.02em; }
+.view-action-btn { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: rgba(255, 255, 255, 0.85); font-size: 1rem; }
 .view-body {
   flex: 1;
   overflow-y: auto;
@@ -766,6 +695,29 @@ function limparLote() {
 .stepper-anim-leave-active { transition: opacity 0.15s ease, transform 0.15s ease; }
 .stepper-anim-enter-from,
 .stepper-anim-leave-to { opacity: 0; transform: scale(0.8); }
+
+.static-list { display: flex; flex-direction: column; gap: 8px; }
+.static-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--bg); border-radius: var(--r-sm); border: 1px solid var(--border); }
+.static-name { font-size: 0.9rem; font-weight: 600; color: var(--brown); }
+.static-val { font-family: var(--mono); font-weight: 700; color: var(--brown-dark); background: #fff; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border); }
+
+.static-items-grid { display: flex; flex-direction: column; gap: 8px; }
+.static-item-card { display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: #fff; }
+.static-item-name { font-weight: 800; font-size: 0.9rem; color: var(--brown-dark); }
+.static-item-sub { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+.static-item-qty { font-weight: 700; color: var(--gold-dark); font-size: 0.85rem; }
+
+.c-orange { color: var(--orange) !important; }
+.btn-full { width: 100%; justify-content: center; }
+
+.pesagem-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
 
 @keyframes floatUp {
   0%   { opacity: 1; transform: translateX(-50%) translateY(0); }

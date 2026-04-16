@@ -3,7 +3,7 @@
     <div class="tab-hdr">
       <div class="tab-hdr-top">
         <h2 class="tab-title"><i class="fas fa-industry"></i> Produção</h2>
-        <button class="btn-primary-sm" @click="abrirMontagem"><i class="fas fa-plus"></i> Produzir</button>
+        <button class="btn-primary-sm" @click="s.setTab('cozinha')"><i class="fas fa-plus"></i> Produzir</button>
       </div>
       <div class="chips">
         <button v-for="f in filtros" :key="f.v" class="chip" :class="{ active: filtroAtivo === f.v }"
@@ -18,28 +18,29 @@
     <template v-else-if="gruposProducao.length">
       <div class="production-groups">
         <div v-for="grupo in gruposProducao" :key="grupo.id" class="production-card">
-          <button class="production-card-head" @click="toggleGrupo(grupo.id)">
+          <div class="production-card-head" @click="toggleGrupo(grupo.id)">
             <div class="production-card-main">
               <div class="production-card-title">Lote de {{ dataHoraBR(grupo.data) }}</div>
               <div class="production-card-sub">
-                <span>{{ grupo.itens.length }} item(ns)</span>
-                <span>{{ grupo.quantidadeTotal }}</span>
-                <span class="row-cost">Custo: {{ R$(grupo.custoTotal) }}</span>
+                <span class="prod-badge-mini">{{ grupo.itens.length }} item(ns)</span>
+                <span class="prod-badge-mini">{{ grupo.quantidadeTotal }}</span>
+                <div class="spacer"></div>
+                <span class="row-cost">Total: {{ R$(grupo.custoTotal) }}</span>
               </div>
             </div>
             <div class="production-card-side">
-              <button class="production-card-kitchen" type="button" title="Abrir lista de preparo"
-                aria-label="Abrir lista de preparo" @click.stop="abrirCozinhaHistorica(grupo)">
-                <i class="fas fa-utensils"></i>
+              <button class="production-card-kitchen" type="button" title="Abrir histórico"
+                aria-label="Abrir histórico" @click.stop="abrirCozinhaHistorica(grupo)">
+                <i class="fas fa-eye"></i>
               </button>
               <i class="fas fa-chevron-down production-card-chevron" :class="{ open: isGrupoAberto(grupo.id) }"></i>
             </div>
-          </button>
+          </div>
 
           <div v-if="isGrupoAberto(grupo.id)" class="production-card-body">
             <SwipeRow v-for="p in grupo.itens" :key="p.uuid || p.id" :row-id="p.uuid || p.id" :width="90">
               <div class="list-row">
-                <div class="action-ico flex-no-shrink mt-4" :class="p.eh_intermediaria ? 'ico-blue' : 'ico-gold'">
+                <div class="recipe-icon" :class="p.eh_intermediaria ? 'badge-blue' : 'badge-gold'">
                   <i :class="p.eh_intermediaria ? 'fas fa-blender' : 'fas fa-cookie-bite'"></i>
                 </div>
                 <div class="row-info">
@@ -151,6 +152,17 @@
       
       <div class="sheet-card mt-16">
         <div class="sheet-body">
+          <template v-if="insumosGlobais.length">
+            <div class="section-label group-title highlight-gold">
+              <i class="fas fa-fill-drip"></i> Total para Cobertura / Uso Geral
+            </div>
+            <div class="global-summary mb-12">
+              <div v-for="g in insumosGlobais" :key="g.id" class="global-item">
+                <span>{{ g.nome }}</span>
+                <strong>{{ fmtQ(g.total, g.unidade) }}</strong>
+              </div>
+            </div>
+          </template>
           
           <div v-for="(item, idx) in loteComIngredientes" :key="item.uid" class="prep-card">
             <button class="prep-card-head" type="button" @click="togglePreparoItem(item.uid)">
@@ -205,7 +217,7 @@
       </template>
     </BaseModal>
 
-    <BaseModal v-if="currentModal === 'cozinha-historico'" title="Lista de Preparo do Lote" @close="fecharModal" class="modal-cozinha-historico">
+    <BaseModal v-if="currentModal === 'cozinha-historico'" title="Lista de Preparo do Lote" @close="fecharModal">
       <div class="modal-inner">
       <div class="pesagem-header">
         <div class="pesagem-stat"><span>Lote:</span> <strong>{{ loteHistorico.length }} itens</strong></div>
@@ -214,6 +226,44 @@
 
       <div class="sheet-card mt-16">
         <div class="sheet-body">
+          <template v-if="historicoInsumosGlobais.length">
+            <div class="section-label group-title highlight-gold">
+              <i class="fas fa-fill-drip"></i> Total para Cobertura / Uso Geral
+            </div>
+            <div class="global-summary mb-12">
+              <div v-for="g in historicoInsumosGlobais" :key="g.id" class="global-item">
+                <span>{{ g.nome }}</span>
+                <strong>{{ fmtQ(g.total, g.unidade) }}</strong>
+              </div>
+            </div>
+          </template>
+
+          <div class="section-label">🥣 Total para pesar (Consolidado)</div>
+          <div class="checklist">
+            <div v-for="ing in historicoIngredientesAgrupados" 
+                 :key="ing.id" 
+                 class="check-item" 
+                 :class="{ 'done': historicoChecklist[ing.id] }"
+                 @click="historicoChecklist[ing.id] = !historicoChecklist[ing.id]">
+              <div class="check-box">
+                <i class="fas" :class="historicoChecklist[ing.id] ? 'fa-check-square' : 'fa-square'"></i>
+              </div>
+              <div class="check-info">
+                <div class="check-main">
+                  <div class="check-name">{{ ing.nome }}</div>
+                  <div class="check-val">{{ fmtQ(ing.total, ing.unidade) }}</div>
+                </div>
+                <div v-if="ing.subIngredientes" class="plan-sub-list" style="margin-left:0; margin-top:6px;">
+                  <div v-for="sub in ing.subIngredientes" :key="sub.nome" class="plan-sub-item">
+                    <span>└ {{ sub.nome }}</span>
+                    <span>{{ fmtQ(sub.total, sub.unidade) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-label">📋 Detalhes por Item</div>
           <div v-for="item in loteHistoricoComIngredientes" :key="item.uid" class="prep-card">
             <button class="prep-card-head" type="button" @click="toggleHistoricoItem(item.uid)">
               <div class="prep-card-summary">
@@ -251,18 +301,6 @@
               </div>
             </div>
           </div>
-
-          <template v-if="historicoInsumosGlobais.length">
-            <div class="section-label group-title mt-16 highlight-gold">
-              <i class="fas fa-fill-drip"></i> Total para Cobertura / Uso Geral
-            </div>
-            <div class="global-summary">
-              <div v-for="g in historicoInsumosGlobais" :key="g.id" class="global-item">
-                <span>{{ g.nome }}</span>
-                <strong>{{ fmtQ(g.total, g.unidade) }}</strong>
-              </div>
-            </div>
-          </template>
         </div>
       </div>
 
@@ -319,6 +357,9 @@ function isInsumoOculto(nome) {
 }
 
 function buildIngredientLine(ing, factor, idx) {
+  // Respeita a configuração de peso (gera_peso) gravada ou sugerida
+  const geraPeso = ing.gera_peso !== undefined ? ing.gera_peso : true
+
   const alvo = ing.tipo === 'receita'
     ? s.receitas.find(x => x.uuid === ing.id)
     : s.produtos.find(x => x.uuid === ing.id)
@@ -329,7 +370,11 @@ function buildIngredientLine(ing, factor, idx) {
 
   const subIngredientes = ing.tipo === 'receita' && alvo?.ingredientes
     ? (alvo.ingredientes || [])
-      .filter(sub => !isInsumoOculto(sub.nome || sub.id))
+      .filter(sub => {
+        if (sub.gera_peso === false) return false
+        const subAlvo = sub.tipo === 'receita' ? s.receitas.find(x => x.uuid === sub.id) : s.produtos.find(x => x.uuid === sub.id)
+        return !isInsumoOculto(subAlvo?.nome || sub.id)
+      })
       .map((sub, subIdx) => {
         const subAlvo = sub.tipo === 'receita'
           ? s.receitas.find(x => x.uuid === sub.id)
@@ -352,6 +397,7 @@ function buildIngredientLine(ing, factor, idx) {
     unidade: unidade || '',
     total,
     tipo: ing.tipo,
+    gera_peso: geraPeso,
     subIngredientes
   }
 }
@@ -443,7 +489,7 @@ const loteComIngredientes = computed(() =>
   lote.value.map((item, idx) => {
     const fator = item.qtd_produzir / (item.rendimento_base || 1)
     const ingredientes = (item.ingredientes || [])
-      .filter(ing => !isInsumoOculto(ing.nome || ing.id))
+      .filter(ing => ing.gera_peso !== false && !isInsumoOculto(ing.nome || ing.id))
       .map(ing => buildIngredientLine(ing, fator, idx))
 
     return buildResumoItem({ ...item, uid: `${item.receita_id}-${idx}` }, ingredientes)
@@ -475,6 +521,43 @@ const loteComPreparo = computed(() =>
     .filter(x => x.modo)
 )
 
+const historicoIngredientesAgrupados = computed(() => {
+  const mapa = {}
+  loteHistoricoComIngredientes.value.forEach(item => {
+    item.ingredientes.forEach(ing => {
+      const key = `${ing.tipo}-${ing.id}`
+      if (!mapa[key]) {
+        mapa[key] = {
+          id: ing.id,
+          tipo: ing.tipo,
+          nome: ing.nome,
+          unidade: ing.unidade,
+          total: 0
+        }
+      }
+      mapa[key].total += ing.total
+    })
+  })
+
+  return Object.values(mapa).map(group => {
+    if (group.tipo === 'receita') {
+      const alvo = s.receitas.find(x => x.uuid === group.id)
+      if (alvo?.ingredientes) {
+        group.subIngredientes = alvo.ingredientes
+          .map(sub => {
+            const subAlvo = sub.tipo === 'receita' ? s.receitas.find(x => x.uuid === sub.id) : s.produtos.find(x => x.uuid === sub.id)
+            return {
+              nome: subAlvo?.nome || 'Item',
+              total: (sub.quantidade * group.total) / (alvo.rendimento || 1),
+              unidade: sub.tipo === 'receita' ? subAlvo?.unidade_rendimento : subAlvo?.unidade_base
+            }
+          })
+      }
+    }
+    return group
+  }).sort((a, b) => a.nome.localeCompare(b.nome))
+})
+
 const loteHistorico = computed(() => {
   if (!historicoGrupo.value) return []
 
@@ -488,10 +571,10 @@ const loteHistorico = computed(() => {
       nome: limpar(item.nome_receita || item.receita_nome),
       qtd_produzir: qtd,
       unidade: item.unidade_rendimento || receita?.unidade_rendimento || 'un',
-      ingredientes: receita?.ingredientes || [],
+      ingredientes: item.ingredientes_snapshot || receita?.ingredientes || [],
       rendimento_base: receita?.rendimento || 1,
       modo_preparo: receita?.modo_preparo || '',
-      receitaEncontrada: !!receita
+      receitaEncontrada: !!(item.ingredientes_snapshot || receita)
     }
   })
 })
@@ -500,7 +583,7 @@ const loteHistoricoComIngredientes = computed(() =>
   loteHistorico.value.map(item => {
     const fator = item.qtd_produzir / (item.rendimento_base || 1)
     const ingredientes = (item.ingredientes || [])
-      .filter(ing => !isInsumoOculto(ing.nome || ing.id))
+      .filter(ing => ing.gera_peso !== false && !isInsumoOculto(ing.nome || ing.id))
       .map(ing => buildIngredientLine(ing, fator, item.uid))
 
     return buildResumoItem(item, ingredientes)
@@ -744,7 +827,8 @@ async function confirmarLote() {
         unidade_rendimento: i.unidade,
         data_producao: data,
         eh_intermediaria: receita?.eh_intermediaria,
-        custo_unitario_snapshot: custoTotal / rendimento   // 📸 fotografia do custo atual
+        custo_unitario_snapshot: custoTotal / rendimento,   // 📸 fotografia do custo atual
+        ingredientes_snapshot: JSON.parse(JSON.stringify(receita?.ingredientes || [])) // 📸 fotografia dos ingredientes
       }
     })
     await s.registrarLoteProducao(itens)
@@ -777,18 +861,33 @@ onMounted(() => setFiltro('7dias'))
 
 .production-card { background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--shadow-sm) }
 
-.production-card-head { width:100%; border:none; background:var(--surface); padding:13px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px; text-align:left; min-height:64px; transition:background var(--t) }
-.production-card-head:active { background:var(--gold-bg) }
+.production-card-head { 
+  width:100%; border:none; background:var(--surface); padding:14px 16px; 
+  display:flex; align-items:center; justify-content:space-between; gap:12px; 
+  text-align:left; min-height:72px; transition:background var(--t);
+  cursor: pointer;
+}
+.production-card-head:active { background:var(--bg) }
 
 .production-card-main { min-width:0 }
-.production-card-title { font-size:.92rem; font-weight:800; color:var(--brown-dark) }
-.production-card-sub { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; font-size:.76rem; color:var(--muted) }
+.production-card-title { font-size:.95rem; font-weight:800; color:var(--brown-dark); letter-spacing: -0.2px; }
+.production-card-sub { display:flex; align-items: center; gap:8px; margin-top:6px; font-size:.76rem; color:var(--muted) }
+
+.prod-badge-mini {
+  padding: 2px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  font-weight: 700;
+  color: var(--brown-mid);
+  font-size: 0.7rem;
+}
 
 .production-card-side { display:flex; align-items:center; gap:8px; flex-shrink:0 }
-.production-card-kitchen { width:38px; height:38px; border:1.5px solid var(--border); border-radius:var(--r-sm); background:var(--cream); color:var(--brown-mid); display:flex; align-items:center; justify-content:center; font-size:.9rem; transition:all var(--t) }
-.production-card-kitchen:active { background:var(--gold-bg); color:var(--gold-dark); border-color:var(--gold) }
+.production-card-kitchen { width:42px; height:42px; border:1.5px solid var(--border); border-radius:var(--r-md); background:var(--cream); color:var(--brown-mid); display:flex; align-items:center; justify-content:center; font-size:1rem; transition:all var(--t) }
+.production-card-kitchen:active { background:var(--gold-bg); color:var(--gold-dark); border-color:var(--gold); transform: scale(0.92); }
 
-.production-card-chevron { color:var(--muted); font-size:.85rem; transition:transform var(--t) }
+.production-card-chevron { color:var(--border2); font-size:.85rem; transition:transform var(--t) }
 .production-card-chevron.open { transform:rotate(180deg) }
 
 .production-card-body { border-top:1px solid var(--border); background:var(--bg); padding: 10px 0; }
@@ -1064,31 +1163,32 @@ onMounted(() => setFiltro('7dias'))
   color: var(--brown);
 }
 
-.checklist { display:flex; flex-direction:column; gap:4px }
-.check-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 4px;
-  border-radius: var(--r-sm);
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  min-height: 52px;
-  transition: all var(--t);
-  border-bottom: 1px solid var(--border);
+.checklist { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.check-item { display: flex; align-items: center; padding: 14px; background: var(--bg); border-radius: var(--r-md); cursor: pointer; border: 1px solid transparent; transition: all var(--t); }
+.check-item.done { opacity: 0.5; background: #f8fafc; border-color: var(--border); }
+
+.check-box { font-size: 1.4rem; margin-right: 15px; color: var(--gold); flex-shrink: 0; }
+.done .check-box { color: var(--green); }
+
+.check-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.check-main { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+
+.check-name { 
+  font-weight: 700; font-size: 0.95rem; color: var(--brown); 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
 }
-.check-item:active { background: var(--cream) }
-.check-item.done { background: var(--green-bg); border-color: var(--green-dim) }
+.done .check-name { text-decoration: line-through; color: var(--muted); }
 
-.check-box { font-size:1.15rem; flex-shrink:0 }
-.check-item:not(.done) .check-box { color: var(--border2) }
-.check-item.done .check-box { color: var(--green) }
+.check-val { 
+  font-family: var(--mono); font-weight: 800; font-size: 0.9rem; 
+  color: var(--brown-dark); background: #fff; 
+  padding: 2px 8px; border-radius: var(--r-sm); 
+  border: 1px solid var(--border);
+  flex-shrink: 0; margin-left: 8px;
+}
 
-.check-info { flex:1; min-width:0 }
-.check-name { font-size:.88rem; font-weight:700; color:var(--text) }
-.check-qty  { font-size:.8rem; font-family:var(--mono); font-weight:700; color:var(--brown-mid); margin-top:2px }
-.check-item.done .check-name { color:var(--muted); text-decoration:line-through }
+.plan-sub-list { margin-left: 2px; }
+.plan-sub-item { color: var(--muted); font-size: 0.78rem; display: flex; justify-content: space-between; }
 
 /* ── Modal: Registrar produção ── */
 .reg-summary {

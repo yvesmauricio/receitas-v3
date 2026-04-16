@@ -6,7 +6,7 @@ import { isGoogleDriveBackupConfigured, salvarBackupNoDrive, restaurarBackupDoDr
 export const useStore = defineStore('choco', () => {
 
   // ── UI ─────────────────────────────────────
-  const tab     = ref('receitas')
+  const tab     = ref('producao')
   const loading = ref(false)
   const toast   = ref(null)
   const modal   = ref(null)
