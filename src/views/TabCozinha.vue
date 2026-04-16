@@ -585,7 +585,7 @@ function limparLote() {
 .spacer { flex: 1; }
 
 .quick-add-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; padding: 16px; border-bottom: 1px solid var(--border); }
-.qa-btn { background: #fff; border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: var(--shadow-sm); cursor: pointer; }
+.qa-btn { background: #fff; border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: var(--shadow-sm); cursor: pointer; user-select: none; -webkit-touch-callout: none; }
 .qa-btn:active { background: var(--gold-bg); transform: scale(0.97); }
 .qa-name { font-size: .85rem; font-weight: 700; color: var(--brown); text-align: center; line-height: 1.2; }
 .qa-un { font-size: .7rem; color: var(--gold-dark); font-weight: 600; }
@@ -747,6 +747,8 @@ function limparLote() {
   justify-content: center;
   line-height: 1;
   transition: background 0.1s;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 .stepper-btn:active { background: rgba(255,255,255,0.15); }
 
