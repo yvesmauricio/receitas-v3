@@ -43,15 +43,13 @@
               <div class="row-name">{{ r.nome }}</div>
               <div class="row-sub">
                 <span class="recipe-price">Venda: {{ R$(r.preco_sugerido || 0) }}</span>
-                <span class="recipe-dot">•</span>
+                <span class="ing-dot">•</span>
                 <span class="recipe-profit" :class="{ negative: getLucroValor(r) < 0 }">
                   Lucro: {{ R$(getLucroValor(r)) }} ({{ getLucroPercentual(r) }})
                 </span>
               </div>
             </div>
-            <span class="badge recipe-type-tag" :class="r.eh_intermediaria ? 'badge-blue' : 'badge-gold'">
-              {{ r.eh_intermediaria ? 'Base/Recheio' : 'Produto final' }}
-            </span>
+
             <i class="fas fa-chevron-right row-chevron"></i>
           </div>
 
@@ -212,6 +210,18 @@
               :aria-label="`Quantidade de ${getNomeIng(ing)}`"
             />
             <span class="ing-unit-tag">{{ getUnidade(ing) }}</span>
+            
+            <!-- Seletor de Peso (Balança) -->
+            <button 
+              type="button" 
+              class="btn-weight" 
+              :class="{ active: ing.gera_peso !== false }" 
+              @click="ing.gera_peso = ing.gera_peso === false ? true : false"
+              :title="ing.gera_peso !== false ? 'Soma no peso total' : 'Não soma no peso'"
+            >
+              <i class="fas fa-balance-scale"></i>
+            </button>
+
             <button class="ing-remove" type="button" :aria-label="`Remover ${getNomeIng(ing)}`" @click="removerIngrediente(i)">
               <i class="fas fa-times"></i>
             </button>
@@ -337,7 +347,6 @@ const { closeAll } = useSwipe()
 const busca  = ref('')
 const modal  = ref(null)
 const saving = ref(false)
-const categoriaAtiva = ref('Todas')
 
 const pickerSearch = ref('')
 const pickerTab    = ref('todos')
@@ -345,8 +354,14 @@ const pickerIndex  = ref(null)
 const pickerTabs   = [{ v:'todos', l:'Tudo' }, { v:'insumos', l:'📦 Ingredientes' }, { v:'bases', l:'🥣 Bases' }]
 const modalHistory = []
 const categoriasFiltro = ['Todas', 'Trufa', 'Cone', 'Barra', 'Brownie', 'Bolo', 'Ovo', 'Base']
+const categoriaAtiva = ref('Trufa')
 let receitaScrollTop = 0
 let restoreReceitaScroll = false
+
+function isInsumoSemPeso(nome) {
+  const chave = normalizar(nome)
+  return ['etiqueta', 'embalagem', 'rotulo', 'rótulo', 'fita', 'laco', 'laço', 'caixa'].some(term => chave.includes(term))
+}
 
 const form = reactive({
   uuid: null, nome: '', categoria: '', eh_intermediaria: 0,
@@ -396,9 +411,18 @@ const totalIngredientesG = computed(() => {
     if (!ing?.id) continue
     const qtd = Number(ing.quantidade || 0)
     if (qtd <= 0) continue
+
+    // Seletor de peso da linha (prioridade total à escolha feita na receita)
+    let soma = ing.gera_peso
+    if (soma === undefined) {
+      // Fallback inteligente para itens antigos ou recém adicionados
+      const alvo = ing.tipo === 'receita' ? s.receitas.find(x => x.uuid === ing.id) : s.produtos.find(x => x.uuid === ing.id)
+      soma = alvo ? (alvo.tipo !== 'embalagem' && !isInsumoSemPeso(alvo.nome)) : true
+    }
+    
+    if (!soma) continue
+
     if (ing.tipo === 'produto') {
-      const p = s.produtos.find(x => x.uuid === ing.id)
-      if (!p || p.tipo === 'embalagem') continue
       total += qtd
     } else if (ing.tipo === 'receita') {
       const sub  = s.receitas.find(r => r.uuid === ing.id)
@@ -406,7 +430,10 @@ const totalIngredientesG = computed(() => {
       const unit = String(sub.unidade_rendimento || '').toLowerCase().trim()
       if (unit === 'g')       total += qtd
       else if (unit === 'kg') total += qtd * 1000
-      else if (unit === 'un') { const pw = Number(sub.peso_unitario || 0); if (pw > 0) total += qtd * pw }
+      else if (unit === 'un') { 
+        const pw = Number(sub.peso_unitario || 0)
+        total += (pw > 0) ? (qtd * pw) : qtd 
+      }
       else total += qtd
     }
   }
@@ -479,7 +506,7 @@ function getLucroPercentual(receita) {
 
 /* ── Ingredientes ─────────────────────────────────────────────── */
 function addNovoItem() {
-  form.ingredientes.push({ _key: Math.random().toString(36).slice(2, 11), id: '', tipo: 'produto', quantidade: null })
+  form.ingredientes.push({ _key: Math.random().toString(36).slice(2, 11), id: '', tipo: 'produto', quantidade: null, gera_peso: true })
   abrirPicker(form.ingredientes.length - 1)
 }
 function abrirModal(next) {
@@ -514,6 +541,9 @@ function removerIngrediente(idx) { form.ingredientes.splice(idx, 1) }
 function selecionarItem(item) {
   const ing = form.ingredientes[pickerIndex.value]
   ing.id = item.id; ing.tipo = item.tipo
+  // Define o padrão automaticamente: embalagens e itens com nomes específicos começam desativados
+  ing.gera_peso = item.tipo !== 'embalagem' && !isInsumoSemPeso(item.nome)
+  
   fecharModal()
   restoreScrollReceita()
 }
@@ -878,6 +908,27 @@ async function excluirDieto(r) {
   color: var(--muted);
   font-weight: 600;
 }
+
+.btn-weight {
+  width: 40px;
+  height: 44px;
+  border-radius: var(--r-sm);
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--border2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .9rem;
+  flex-shrink: 0;
+  transition: all var(--t);
+}
+.btn-weight.active {
+  color: var(--gold-dark);
+  background: var(--gold-bg);
+  border-color: #e8d5a0;
+}
+
 .ing-remove {
   width: 44px;
   height: 44px;

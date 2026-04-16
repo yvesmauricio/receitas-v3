@@ -210,11 +210,11 @@ const { closeAll } = useSwipe()
 const busca  = ref('')
 const modal  = ref(null)
 const saving = ref(false)
-const categoriaAtiva = ref('Todas')
+const categoriaAtiva = ref('Ingrediente')
 let modalHistoryToken = null
 
 const UNIDADES_COMPRA = ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pct', 'dz']
-const categoriasFiltro = ['Todas', 'Ingrediente', 'Base/Recheio', 'Produto final', 'Embalagem']
+const categoriasFiltro = ['Todas', 'Ingrediente', 'Embalagem']
 
 /* ── Lista ────────────────────────────────────────────────────── */
 const lista = computed(() => {
@@ -248,14 +248,16 @@ const form = reactive({
 const custoPorBase = computed(() => {
   const c = +form.custo_por_unidade
   const f = +form.fator_conversao
-  return (c && f) ? R$(c / f) : 'R$ 0,00'
+  if (!c || !f) return 'R$ 0,00'
+  const valor = c / f
+  return 'R$ ' + valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 5 })
 })
 
 const custoPorBaseRaw = computed(() => {
   const c = +form.custo_por_unidade
   const f = +form.fator_conversao
   if (!c || !f) return '0,00'
-  return (c / f).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+  return (c / f).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 5 })
 })
 
 /* ── Helpers visuais ──────────────────────────────────────────── */
