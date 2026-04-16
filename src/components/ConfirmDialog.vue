@@ -76,6 +76,8 @@ const btnClass = computed(() => ({
   color: var(--muted);
   line-height: 1.6;
   margin-bottom: 24px;
+  white-space: pre-line; /* permite \n no resumo do lote */
+  text-align: left;
 }
 
 .confirm-actions {

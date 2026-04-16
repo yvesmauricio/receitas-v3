@@ -47,7 +47,6 @@
                 <span>{{ p.unidade_compra || p.unidade_base || '-' }}</span>
               </div>
             </div>
-            <span class="badge ing-type-tag" :class="tipoBadge(p.tipo)">{{ tipoLabel(p.tipo) }}</span>
             <i class="fas fa-chevron-right row-chevron"></i>
           </div>
 

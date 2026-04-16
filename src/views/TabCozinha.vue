@@ -25,13 +25,51 @@
 
     <div class="view-body">
     <!-- Grade de Seleção Rápida (Otimizada para toque) -->
-    <div class="quick-add-grid">
-      <button v-for="r in receitasFiltradas" :key="r.uuid" class="qa-btn" @click="adicionarAoLote(r)">
-        <span class="qa-name">{{ r.nome }}</span>
-        <div v-if="normalizar(r.nome).includes('trufa')" class="badge-shortcut">+1 Forma</div>
-        <div v-else class="badge-shortcut">+{{ r.rendimento }} {{ r.unidade_rendimento }}</div>
-      </button>
+<!-- MELHORIA 2 (badge) + 3 (feedback) + 4 (ordenação) + 1 (long press) -->
+<div class="quick-add-grid">
+  <button
+    v-for="r in receitasFiltradas"
+    :key="r.uuid"
+    class="qa-btn"
+    :class="{ 'qa-btn--inlote': qtdNoLote[r.uuid] }"
+    @click="onBtnClick(r, $event)"
+    @pointerdown="iniciarLongPress(r, $event)"
+    @pointerup="cancelarLongPress"
+    @pointercancel="cancelarLongPress"
+    @contextmenu.prevent
+  >
+    <!-- MELHORIA 2: Badge de quantidade -->
+    <span v-if="qtdNoLote[r.uuid]" class="qa-badge">{{ qtdNoLote[r.uuid] }}</span>
+    <span class="qa-name">{{ r.nome }}</span>
+    <div v-if="normalizar(r.nome).includes('trufa')" class="badge-shortcut">+1 Forma</div>
+    <div v-else class="badge-shortcut">+{{ r.rendimento }} {{ r.unidade_rendimento }}</div>
+  </button>
+</div>
+
+<!-- MELHORIA 3: Feedbacks flutuantes (+12 un) -->
+<Teleport to="body">
+  <div
+    v-for="fb in feedbacks"
+    :key="fb.id"
+    class="feedback-float"
+    :style="{ left: fb.x + 'px', top: fb.y + 'px' }"
+  >{{ fb.text }}</div>
+</Teleport>
+
+<!-- MELHORIA 1: Mini Stepper Flutuante (long press) -->
+<Teleport to="body">
+  <Transition name="stepper-anim">
+    <div
+      v-if="stepper.visible"
+      class="stepper-popup"
+      :style="{ left: stepper.x + 'px', top: stepper.y + 'px' }"
+    >
+      <button class="stepper-btn" @click="stepperAjustar(-1)">−</button>
+      <span class="stepper-val">{{ stepper.qtd }}</span>
+      <button class="stepper-btn" @click="stepperAjustar(1)">+</button>
     </div>
+  </Transition>
+</Teleport>
 
     <div v-if="lote.length" class="batch-content">
       <!-- Lista de itens planejados -->
@@ -125,7 +163,7 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, computed, reactive, watch, onBeforeUnmount } from 'vue'
 import { useStore } from '../store.js'
 import { fmtQtd as fmtQ, nowLocal, normalizar } from '../utils.js'
 import { useConfirm } from '../composables/useConfirm.js'
@@ -137,9 +175,45 @@ const checklist = reactive({})
 const categorias = ['Todas', 'Trufa', 'Cone', 'Barra', 'Brownie', 'Bolo', 'Ovo', 'Base']
 const catAtiva = ref('Trufa')
 
+// MELHORIA 4: Registro de uso recente (estado local, não persiste)
+const usageOrder = ref([])
+
 const receitasFiltradas = computed(() => {
-  if (catAtiva.value === 'Todas') return s.receitas
-  return s.receitas.filter(r => r.categoria === catAtiva.value)
+  const base = catAtiva.value === 'Todas'
+    ? s.receitas
+    : s.receitas.filter(r => r.categoria === catAtiva.value)
+  if (!usageOrder.value.length) return base
+  return [...base].sort((a, b) => {
+    const ia = usageOrder.value.indexOf(a.uuid)
+    const ib = usageOrder.value.indexOf(b.uuid)
+    if (ia === -1 && ib === -1) return 0
+    if (ia === -1) return 1
+    if (ib === -1) return -1
+    return ia - ib
+  })
+})
+
+// MELHORIA 2: Mapa reativo de quantidades no lote
+const qtdNoLote = computed(() => {
+  const map = {}
+  lote.value.forEach(item => { map[item.receita_id] = item.qtd_produzir })
+  return map
+})
+
+// MELHORIA 3: Estado dos feedbacks flutuantes
+const feedbacks = ref([])
+let _feedbackId = 0
+
+// MELHORIA 1: Estado do stepper flutuante
+const longPressTimer = ref(null)
+const longPressActive = ref(false)
+const stepper = reactive({
+  visible: false,
+  receita: null,
+  x: 0,
+  y: 0,
+  qtd: 0,
+  inactivityTimer: null
 })
 
 function getPassoProducao(r) {
@@ -150,6 +224,106 @@ function getPassoProducao(r) {
     if (peso > 0) return 12  // Forma de 12 cavidades (19g ou menor)
   }
   return r.rendimento || 1
+}
+
+// ─── MELHORIA 4: Ordenação por uso recente ────────────────────────────────
+function registrarUso(uuid) {
+  usageOrder.value = [uuid, ...usageOrder.value.filter(id => id !== uuid)].slice(0, 30)
+}
+
+// ─── MELHORIA 3: Feedback visual (+N un) ─────────────────────────────────
+function mostrarFeedback(r, e) {
+  const el = e.target.closest('.qa-btn')
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  const passo = getPassoProducao(r)
+  const texto = normalizar(r.nome).includes('trufa')
+    ? '+1 Forma'
+    : `+${passo} ${r.unidade_rendimento}`
+  const id = _feedbackId++
+  feedbacks.value.push({
+    id,
+    text: texto,
+    x: rect.left + rect.width / 2,
+    y: rect.top + 8
+  })
+  setTimeout(() => {
+    feedbacks.value = feedbacks.value.filter(f => f.id !== id)
+  }, 750)
+}
+
+// ─── MELHORIA 1: Long press → Stepper flutuante ───────────────────────────
+function onBtnClick(r, e) {
+  if (navigator.vibrate) navigator.vibrate(10)
+  // Ignora o click gerado após o long press
+  if (longPressActive.value) {
+    longPressActive.value = false
+    return
+  }
+  adicionarAoLote(r)
+  mostrarFeedback(r, e)
+  registrarUso(r.uuid)
+}
+
+function iniciarLongPress(r, e) {
+  longPressActive.value = false
+  longPressTimer.value = setTimeout(() => {
+    longPressActive.value = true
+    abrirStepper(r, e)
+  }, 400)
+}
+
+function cancelarLongPress() {
+  clearTimeout(longPressTimer.value)
+}
+
+function abrirStepper(r, e) {
+  if (navigator.vibrate) navigator.vibrate(10)
+  const el = e.target.closest('.qa-btn')
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  stepper.receita = r
+  stepper.qtd = qtdNoLote.value[r.uuid] || 0
+  // Posiciona acima do botão; se não couber, posiciona abaixo
+  const popupH = 56
+  stepper.x = Math.max(10, Math.min(rect.left + rect.width / 2 - 72, window.innerWidth - 160)
+  )
+  stepper.y = rect.top - popupH - 8 > 10 ? rect.top - popupH - 8 : rect.bottom + 8
+  stepper.visible = true
+  resetStepperInactivity()
+  document.addEventListener('pointerdown', onDocPointerDown)
+}
+
+function fecharStepper() {
+  stepper.visible = false
+  stepper.receita = null
+  clearTimeout(stepper.inactivityTimer)
+  onBeforeUnmount(() => {
+    document.removeEventListener('pointerdown', onDocPointerDown)
+  })
+}
+
+function onDocPointerDown(e) {
+  if (!e.target.closest('.stepper-popup')) fecharStepper()
+}
+
+function stepperAjustar(delta) {
+  if (!stepper.receita) return
+  if (delta > 0) {
+      adicionarAoLote(stepper.receita)
+      registrarUso(stepper.receita.uuid)
+  } else {
+    const idx = lote.value.findIndex(i => i.receita_id === stepper.receita.uuid)
+    if (idx >= 0) ajustarQtd(idx, -1) // reutiliza lógica existente
+  }
+  stepper.qtd = qtdNoLote.value[stepper.receita?.uuid] || 0
+  if (stepper.qtd === 0) { fecharStepper(); return }
+  resetStepperInactivity()
+}
+
+function resetStepperInactivity() {
+  clearTimeout(stepper.inactivityTimer)
+  stepper.inactivityTimer = setTimeout(fecharStepper, 2500)
 }
 
 function adicionarAoLote(r) {
@@ -262,9 +436,14 @@ const ingredientesAgrupados = computed(() => {
 })
 
 async function finalizarLote() {
+  // MELHORIA 5: Resumo detalhado antes de confirmar
+  const linhas = lote.value.map(item => `• ${item.qtd_produzir} ${item.unidade}  —  ${item.nome}`)
+  const totalItens = lote.value.reduce((acc, item) => acc + item.qtd_produzir, 0)
+  const resumo = linhas.join('\n') + `\n\nTotal: ${totalItens} unidades`
+
   const ok = await confirm.ask(
-    'Deseja registrar toda essa produção no histórico?',
-    { title: 'Finalizar Lote', icon: 'fas fa-check-double', confirmLabel: 'Registrar' }
+    resumo,
+    { title: `Registrar ${lote.value.length} receita${lote.value.length > 1 ? 's' : ''}?`, icon: 'fas fa-check-double', confirmLabel: 'Registrar', type: 'primary' }
   )
   if (!ok) return
 
@@ -373,7 +552,7 @@ function limparLote() {
 
 .quick-add-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; padding: 16px; border-bottom: 1px solid var(--border); }
 .qa-btn { background: #fff; border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: var(--shadow-sm); cursor: pointer; }
-.qa-btn:active { background: var(--gold-bg); transform: scale(0.95); }
+.qa-btn:active { background: var(--gold-bg); transform: scale(0.97); }
 .qa-name { font-size: .85rem; font-weight: 700; color: var(--brown); text-align: center; line-height: 1.2; }
 .qa-un { font-size: .7rem; color: var(--gold-dark); font-weight: 600; }
 
@@ -461,4 +640,100 @@ function limparLote() {
   .check-name { font-size: 0.9rem; }
   .check-val { font-size: 0.85rem; padding: 2px 4px; }
 }
+
+/* ── MELHORIA 2: Badge de quantidade na grid ─────────────────── */
+.qa-btn { position: relative; }
+
+.qa-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--gold-dark);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.qa-btn--inlote {
+  border-color: var(--gold-dark);
+  background: var(--gold-bg);
+}
+
+/* ── MELHORIA 3: Feedback flutuante (+N un) ──────────────────── */
+.feedback-float {
+  position: fixed;
+  transform: translateX(-50%);
+  background: var(--brown-dark);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 20px;
+  pointer-events: none;
+  z-index: 9999;
+  animation: floatUp 0.75s ease forwards;
+  white-space: nowrap;
+}
+
+/* ── MELHORIA 1: Stepper flutuante ───────────────────────────── */
+.stepper-popup {
+  position: fixed;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--brown-dark);
+  border-radius: 28px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  padding: 4px;
+  touch-action: none;
+}
+
+.stepper-btn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: background 0.1s;
+}
+.stepper-btn:active { background: rgba(255,255,255,0.15); }
+
+.stepper-val {
+  min-width: 36px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+/* Animação do stepper (scale + fade) */
+.stepper-anim-enter-active,
+.stepper-anim-leave-active { transition: opacity 0.15s ease, transform 0.15s ease; }
+.stepper-anim-enter-from,
+.stepper-anim-leave-to { opacity: 0; transform: scale(0.8); }
+
+@keyframes floatUp {
+  0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-40px); }
+}
+
 </style>

@@ -148,8 +148,10 @@
         <div class="pesagem-stat"><span>Custo Est.:</span> <strong>{{ R$(custoTotalLote) }}</strong></div>
       </div>
 
+      
       <div class="sheet-card mt-16">
         <div class="sheet-body">
+          
           <div v-for="(item, idx) in loteComIngredientes" :key="item.uid" class="prep-card">
             <button class="prep-card-head" type="button" @click="togglePreparoItem(item.uid)">
               <div class="prep-card-summary">
@@ -182,17 +184,7 @@
             </div>
           </div>
 
-          <template v-if="insumosGlobais.length">
-            <div class="section-label group-title mt-16 highlight-gold">
-              <i class="fas fa-fill-drip"></i> Total para Cobertura / Uso Geral
-            </div>
-            <div class="global-summary">
-              <div v-for="g in insumosGlobais" :key="g.id" class="global-item">
-                <span>{{ g.nome }}</span>
-                <strong>{{ fmtQ(g.total, g.unidade) }}</strong>
-              </div>
-            </div>
-          </template>
+
         </div>
       </div>
 
@@ -1163,4 +1155,9 @@ onMounted(() => setFiltro('7dias'))
 .empty h3 { font-size:.95rem; font-weight:700; color:var(--muted) }
 .mt-12-forced { margin-top:12px }
 
+.modal-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 </style>
