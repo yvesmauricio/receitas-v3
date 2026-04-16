@@ -176,6 +176,7 @@ const categorias = ['Todas', 'Trufa', 'Cone', 'Barra', 'Brownie', 'Bolo', 'Ovo',
 const catAtiva = ref('Trufa')
 
 const holdInterval = ref(null)
+const blockClick = ref(false)
 const holdSpeed = ref(300) // começa mais lento
 
 function iniciarHoldMenos() {
@@ -279,12 +280,12 @@ function mostrarFeedback(r, e) {
 
 // ─── MELHORIA 1: Long press → Stepper flutuante ───────────────────────────
 function onBtnClick(r, e) {
-  if (navigator.vibrate) navigator.vibrate(10)
-  // Ignora o click gerado após o long press
-  if (longPressActive.value) {
-    longPressActive.value = false
+  if (longPressActive.value || blockClick.value) {
+    e.preventDefault()
+    e.stopPropagation()
     return
   }
+
   adicionarAoLote(r)
   mostrarFeedback(r, e)
   registrarUso(r.uuid)
@@ -300,6 +301,12 @@ function iniciarLongPress(r, e) {
 
 function cancelarLongPress() {
   clearTimeout(longPressTimer.value)
+
+  // 👇 NÃO reseta imediatamente
+  // deixa o click morrer antes
+  setTimeout(() => {
+    longPressActive.value = false
+  }, 250)
 }
 
 function abrirStepper(r, e) {
@@ -322,15 +329,23 @@ function abrirStepper(r, e) {
 function fecharStepper() {
   stepper.visible = false
   stepper.receita = null
+
   clearTimeout(stepper.inactivityTimer)
-  onBeforeUnmount(() => {
-    document.removeEventListener('pointerdown', onDocPointerDown)
-    pararHold()
-  })
+  document.removeEventListener('pointerdown', onDocPointerDown)
+  pararHold()
+
+  longPressActive.value = false
+
+  // 🔒 bloqueia click fantasma
+  blockClick.value = true
+  setTimeout(() => blockClick.value = false, 200)
 }
 
 function onDocPointerDown(e) {
-  if (!e.target.closest('.stepper-popup')) fecharStepper()
+  if (!stepper.visible) return // 🔥 evita lixo pós-fechamento
+  if (!e.target.closest('.stepper-popup')) {
+    fecharStepper()
+  }
 }
 
 function stepperAjustar(delta) {
@@ -344,7 +359,11 @@ function stepperAjustar(delta) {
     if (idx >= 0) ajustarQtd(idx, -1) // reutiliza lógica existente
   }
   stepper.qtd = qtdNoLote.value[stepper.receita?.uuid] || 0
-  if (stepper.qtd === 0) { fecharStepper(); return }
+  if (stepper.qtd === 0) {
+    pararHold() // 🔥 ADICIONA ISSO
+    fecharStepper()
+    return
+  }
   resetStepperInactivity()
 }
 
