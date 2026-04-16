@@ -181,18 +181,16 @@ const holdSpeed = ref(300) // começa mais lento
 
 function iniciarHoldMenos() {
   if (!stepper.receita) return
-
   holdSpeed.value = 300
-
+  holdInterval.value = -1 // Marca como ativo antes de começar
   function tick() {
+    if (holdInterval.value === null) return // Se foi parado, não executa
     stepperAjustar(-1)
-
+    if (holdInterval.value === null) return // Se o ajuste zerou a qtd e parou o hold, interrompe o loop
     // aceleração progressiva
     holdSpeed.value = Math.max(60, holdSpeed.value * 0.75)
-
     holdInterval.value = setTimeout(tick, holdSpeed.value)
   }
-
   tick()
 }
 
@@ -201,22 +199,11 @@ function pararHold() {
   holdInterval.value = null
 }
 
-// MELHORIA 4: Registro de uso recente (estado local, não persiste)
-const usageOrder = ref([])
-
 const receitasFiltradas = computed(() => {
   const base = catAtiva.value === 'Todas'
     ? s.receitas
     : s.receitas.filter(r => r.categoria === catAtiva.value)
-  if (!usageOrder.value.length) return base
-  return [...base].sort((a, b) => {
-    const ia = usageOrder.value.indexOf(a.uuid)
-    const ib = usageOrder.value.indexOf(b.uuid)
-    if (ia === -1 && ib === -1) return 0
-    if (ia === -1) return 1
-    if (ib === -1) return -1
-    return ia - ib
-  })
+  return [...base].sort((a, b) => (a.nome || '').localeCompare(b.nome || ''))
 })
 
 // MELHORIA 2: Mapa reativo de quantidades no lote
@@ -252,11 +239,6 @@ function getPassoProducao(r) {
   return r.rendimento || 1
 }
 
-// ─── MELHORIA 4: Ordenação por uso recente ────────────────────────────────
-function registrarUso(uuid) {
-  usageOrder.value = [uuid, ...usageOrder.value.filter(id => id !== uuid)].slice(0, 30)
-}
-
 // ─── MELHORIA 3: Feedback visual (+N un) ─────────────────────────────────
 function mostrarFeedback(r, e) {
   const el = e.target.closest('.qa-btn')
@@ -288,11 +270,11 @@ function onBtnClick(r, e) {
 
   adicionarAoLote(r)
   mostrarFeedback(r, e)
-  registrarUso(r.uuid)
 }
 
 function iniciarLongPress(r, e) {
   longPressActive.value = false
+
   longPressTimer.value = setTimeout(() => {
     longPressActive.value = true
     abrirStepper(r, e)
@@ -306,23 +288,30 @@ function cancelarLongPress() {
   // deixa o click morrer antes
   setTimeout(() => {
     longPressActive.value = false
+    blockClick.value = false
   }, 250)
 }
 
 function abrirStepper(r, e) {
   if (navigator.vibrate) navigator.vibrate(10)
+
+  document.removeEventListener('pointerdown', onDocPointerDown) // 🧠 limpa antes
+
   const el = e.target.closest('.qa-btn')
   if (!el) return
+
   const rect = el.getBoundingClientRect()
+
   stepper.receita = r
   stepper.qtd = qtdNoLote.value[r.uuid] || 0
-  // Posiciona acima do botão; se não couber, posiciona abaixo
+
   const popupH = 56
-  stepper.x = Math.max(10, Math.min(rect.left + rect.width / 2 - 72, window.innerWidth - 160)
-  )
+  stepper.x = Math.max(10, Math.min(rect.left + rect.width / 2 - 72, window.innerWidth - 160))
   stepper.y = rect.top - popupH - 8 > 10 ? rect.top - popupH - 8 : rect.bottom + 8
+
   stepper.visible = true
   resetStepperInactivity()
+
   document.addEventListener('pointerdown', onDocPointerDown)
 }
 
@@ -353,7 +342,6 @@ function stepperAjustar(delta) {
   if (!stepper.receita) return
   if (delta > 0) {
       adicionarAoLote(stepper.receita)
-      registrarUso(stepper.receita.uuid)
   } else {
     const idx = lote.value.findIndex(i => i.receita_id === stepper.receita.uuid)
     if (idx >= 0) ajustarQtd(idx, -1) // reutiliza lógica existente
