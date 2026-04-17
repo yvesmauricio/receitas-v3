@@ -624,7 +624,7 @@ async function salvar() {
       `A soma dos ingredientes (${totalIngredientesG.value.toFixed(0)}g) difere do peso esperado (${pesoEsperado.value.toFixed(0)}g). Deseja salvar assim mesmo?`,
       { title: 'Divergência de Peso', type: 'warning', confirmLabel: 'Salvar mesmo assim' }
     )
-    if (!ok) return
+    if (!ok) return 
   }
 
   saving.value = true
