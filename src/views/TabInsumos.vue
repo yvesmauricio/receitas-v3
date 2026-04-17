@@ -87,19 +87,19 @@
           <label class="label">Tipo</label>
           <div class="option-grid option-grid-2">
             <button type="button" class="option-card" :class="{ active: form.tipo === 'insumo' }" @click="form.tipo = 'insumo'">
-              <span class="option-ico">🥛</span>
+              <i class="fas fa-mortar-pestle option-ico"></i>
               <span class="option-label">Ingrediente</span>
             </button>
             <button type="button" class="option-card" :class="{ active: form.tipo === 'base' }" @click="form.tipo = 'base'">
-              <span class="option-ico">🥣</span>
+              <i class="fas fa-blender option-ico"></i>
               <span class="option-label">Base/Recheio</span>
             </button>
             <button type="button" class="option-card" :class="{ active: form.tipo === 'final' }" @click="form.tipo = 'final'">
-              <span class="option-ico">🍫</span>
+              <i class="fas fa-cookie-bite option-ico"></i>
               <span class="option-label">Produto final</span>
             </button>
             <button type="button" class="option-card" :class="{ active: form.tipo === 'embalagem' }" @click="form.tipo = 'embalagem'">
-              <span class="option-ico">📦</span>
+              <i class="fas fa-box option-ico"></i>
               <span class="option-label">Embalagem</span>
             </button>
           </div>
@@ -114,7 +114,7 @@
           <label class="label">Unidade de compra</label>
           <div class="unit-pill-grid">
             <button
-              v-for="u in UNIDADES_COMPRA"
+              v-for="u in ['kg','g','L','ml','un','cx','pct','dz']"
               :key="u"
               type="button"
               class="unit-pill"
@@ -388,25 +388,25 @@ async function excluirDireto(p) {
 
 .option-card {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 12px 8px;
-  border: 2px solid var(--border);
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
   border-radius: var(--r-md);
   background: var(--surface);
   transition: all var(--t);
-  min-height: 68px;
+  min-height: 52px;
 }
-.option-card:active { transform: scale(.96) }
+.option-card:active { transform: scale(.97) }
 .option-card.active {
-  border-color: var(--brown);
+  border-color: var(--brown-mid);
   background: var(--gold-bg);
-  box-shadow: 0 0 0 3px rgba(61,31,7,.08);
 }
-.option-ico { font-size: 1.4rem; line-height: 1 }
-.option-label { font-size: .78rem; font-weight: 700; color: var(--brown-mid) }
+.option-ico { font-size: 1.1rem; color: var(--muted); transition: color var(--t); }
+.option-card.active .option-ico { color: var(--gold-dark); }
+.option-label { font-size: .82rem; font-weight: 700; color: var(--muted); transition: color var(--t); }
 .option-card.active .option-label { color: var(--brown-dark) }
 
 /* ── Unit pills ── */

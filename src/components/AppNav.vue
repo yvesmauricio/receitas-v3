@@ -1,12 +1,6 @@
 <template>
   <nav class="nav">
-    <button
-      v-for="n in nav"
-      :key="n.id"
-      class="nav-btn"
-      :class="{ active: s.tab === n.id }"
-      @click="s.setTab(n.id)"
-    >
+    <button v-for="n in nav" :key="n.id" class="nav-btn" :class="{ active: s.tab === n.id }" @click="s.setTab(n.id)">
       <i :class="n.icon"></i>
       <span>{{ n.label }}</span>
     </button>
@@ -17,10 +11,10 @@
 import { useStore } from '../store.js'
 const s = useStore()
 const nav = [
-  { id: 'insumos',  icon: 'fas fa-boxes',      label: 'Ingredientes' },
-  { id: 'receitas', icon: 'fas fa-book-open',   label: 'Receitas' },
-  { id: 'producao', icon: 'fas fa-industry',    label: 'Produção' },
-  { id: 'painel',   icon: 'fas fa-chart-pie',   label: 'Painel' },
+  { id: 'painel', icon: 'fas fa-chart-pie', label: 'Painel' },
+  { id: 'insumos', icon: 'fas fa-boxes', label: 'Ingredientes' },
+  { id: 'receitas', icon: 'fas fa-book-open', label: 'Receitas' },
+  { id: 'producao', icon: 'fas fa-industry', label: 'Produção' },
 
 ]
 </script>

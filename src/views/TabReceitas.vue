@@ -90,20 +90,14 @@
         <!-- Tipo: toggle visual -->
         <div class="fg">
           <label class="label">Tipo</label>
-          <div class="type-toggle">
-            <button type="button" class="type-btn" :class="{ active: Number(form.eh_intermediaria) === 0 }" @click="form.eh_intermediaria = 0">
-              <span class="type-ico">🍫</span>
-              <div>
-                <div class="type-label">Produto final</div>
-                <div class="type-sub">Para venda direta</div>
-              </div>
+          <div class="option-grid option-grid-2">
+            <button type="button" class="option-card" :class="{ active: Number(form.eh_intermediaria) === 0 }" @click="form.eh_intermediaria = 0">
+              <i class="fas fa-cookie-bite option-ico"></i>
+              <span class="option-label">Produto Final</span>
             </button>
-            <button type="button" class="type-btn" :class="{ active: Number(form.eh_intermediaria) === 1 }" @click="form.eh_intermediaria = 1">
-              <span class="type-ico">🥣</span>
-              <div>
-                <div class="type-label">Base / Recheio</div>
-                <div class="type-sub">Usada em outras receitas</div>
-              </div>
+            <button type="button" class="option-card" :class="{ active: Number(form.eh_intermediaria) === 1 }" @click="form.eh_intermediaria = 1">
+              <i class="fas fa-blender option-ico"></i>
+              <span class="option-label">Base / Recheio</span>
             </button>
           </div>
         </div>
@@ -113,7 +107,7 @@
           <label class="label">Categoria <span class="label-opt">(opcional)</span></label>
           <div class="cat-pill-row">
             <button
-              v-for="c in ['Trufa','Cone','Barra','Brownie','Bolo','Ovo','Base']"
+              v-for="c in categoriasFiltro.filter(x => x !== 'Todas')"
               :key="c"
               type="button"
               class="cat-pill"
@@ -128,21 +122,25 @@
       <div class="form-section">
         <div class="form-section-label"><i class="fas fa-layer-group"></i> Rendimento &amp; Preço</div>
 
-        <div class="render-row">
-          <div class="fg render-qtd">
+        <div class="render-row-slim">
+          <div class="fg">
             <label class="label">Rendimento</label>
             <input v-model.number="form.rendimento" class="input" type="number" min="0" step="0.01" placeholder="10" inputmode="decimal" />
           </div>
-          <div class="fg render-un">
+          <div class="fg">
             <label class="label">Unidade</label>
-            <select v-model="form.unidade_rendimento" class="input">
-              <option v-for="u in ['un','g','kg','pct','caixa']" :key="u" :value="u">{{ u }}</option>
-            </select>
+            <div class="unit-pill-grid unit-pill-grid-5">
+              <button v-for="u in ['un','g','kg','pct','cx']" 
+                :key="u" type="button" class="unit-pill"
+                :class="{ active: form.unidade_rendimento === u }"
+                @click="form.unidade_rendimento = u">{{ u }}</button>
+            </div>
           </div>
-          <div class="fg render-peso">
-            <label class="label">Peso/un <span class="label-opt">(g)</span></label>
-            <input v-model.number="form.peso_unitario" class="input" type="number" inputmode="decimal" placeholder="30" />
-          </div>
+        </div>
+
+        <div class="fg">
+          <label class="label">Peso de 1 unidade <span class="label-opt">(opcional, em gramas)</span></label>
+          <input v-model.number="form.peso_unitario" class="input" type="number" inputmode="decimal" placeholder="Ex: 30" />
         </div>
 
         <div class="fg">
@@ -182,7 +180,7 @@
       </div>
 
       <!-- ── Seção: Ingredientes ── -->
-      <div class="form-section">
+      <div class="form-section" id="section-ingredientes">
         <div class="form-section-label"><i class="fas fa-list-ul"></i> Ingredientes</div>
 
         <div v-if="!form.ingredientes.length" class="ing-empty-state">
@@ -353,11 +351,13 @@ function isInsumoSemPeso(nome) {
   return ['etiqueta', 'embalagem', 'rotulo', 'rótulo', 'fita', 'laco', 'laço', 'caixa'].some(term => chave.includes(term))
 }
 
-const form = reactive({
+const getEmptyForm = () => ({
   uuid: null, nome: '', categoria: '', eh_intermediaria: 0,
   rendimento: null, unidade_rendimento: 'un',
   peso_unitario: null, preco_sugerido: null, modo_preparo: '', ingredientes: []
 })
+
+const form = reactive(getEmptyForm())
 
 /* ── Picker ──────────────────────────────────────────────────── */
 const pickerInsumos = computed(() => {
@@ -596,7 +596,7 @@ const lista = computed(() => {
 
 /* ── Modal ────────────────────────────────────────────────────── */
 function abrir(r) {
-  Object.assign(form, { uuid: null, nome: '', categoria: '', eh_intermediaria: 0, rendimento: null, unidade_rendimento: 'un', peso_unitario: null, preco_sugerido: null, modo_preparo: '', ingredientes: [] })
+  Object.assign(form, getEmptyForm())
   if (r) Object.assign(form, {
     uuid: r.uuid, nome: r.nome, categoria: r.categoria, eh_intermediaria: r.eh_intermediaria,
     rendimento: r.rendimento, unidade_rendimento: r.unidade_rendimento, peso_unitario: r.peso_unitario,
@@ -704,32 +704,32 @@ async function excluirDireto(r) {
 .form-section-label i { font-size: .8rem; color: var(--brown-mid) }
 .label-opt { font-size: .75rem; font-weight: 500; color: var(--muted); text-transform: none; letter-spacing: 0 }
 
-/* ── Type toggle ── */
-.type-toggle {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.type-btn {
+/* ── Option cards (tipo de receita) ── */
+.option-grid { display:grid; gap:8px }
+.option-grid-2 { grid-template-columns:1fr 1fr }
+
+.option-card {
   display: flex;
+  flex-direction: row;
   align-items: center;
+  justify-content: flex-start;
   gap: 10px;
-  padding: 12px;
-  border: 2px solid var(--border);
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
   border-radius: var(--r-md);
   background: var(--surface);
-  text-align: left;
   transition: all var(--t);
-  min-height: 64px;
+  min-height: 52px;
 }
-.type-btn:active { transform: scale(.97) }
-.type-btn.active {
-  border-color: var(--brown);
+.option-card:active { transform: scale(.96) }
+.option-card.active {
+  border-color: var(--brown-mid);
   background: var(--gold-bg);
 }
-.type-ico  { font-size: 1.6rem; flex-shrink: 0; line-height: 1 }
-.type-label { font-size: .84rem; font-weight: 800; color: var(--brown-dark); line-height: 1.2 }
-.type-sub   { font-size: .72rem; color: var(--muted); margin-top: 2px }
+.option-ico { font-size: 1.1rem; color: var(--muted); transition: color var(--t); }
+.option-card.active .option-ico { color: var(--gold-dark); }
+.option-label { font-size: .82rem; font-weight: 700; color: var(--muted); transition: color var(--t); }
+.option-card.active .option-label { color: var(--brown-dark) }
 
 /* ── Categoria pills (horizontal scroll) ── */
 .cat-pill-row {
@@ -766,11 +766,38 @@ async function excluirDireto(r) {
 /* ── Rendimento row ── */
 .render-row {
   display: grid;
-  grid-template-columns: 2fr 1.2fr 1.2fr;
+  grid-template-columns: 1fr 1.5fr;
   gap: 8px;
   margin-bottom: 4px;
 }
-.render-qtd, .render-un, .render-peso { margin-bottom: 0 }
+.render-row-slim {
+  display: grid;
+  grid-template-columns: 1fr 1.8fr;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.unit-pill-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 6px;
+}
+.unit-pill-grid-5 { grid-template-columns: repeat(5, minmax(0,1fr)) }
+
+.unit-pill {
+  padding: 8px 4px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--cream);
+  color: var(--muted);
+  font-size: .75rem;
+  font-weight: 700;
+  text-align: center;
+  min-height: 40px;
+  transition: all var(--t);
+}
+.unit-pill:active { transform: scale(.95) }
+.unit-pill.active { border-color: var(--brown-mid); background: var(--brown); color: #fff; }
 
 /* ── Input com prefixo ── */
 .input-with-prefix {
