@@ -4,15 +4,15 @@
       <button class="view-back-btn" @click="s.setTab('producao')" aria-label="Voltar">
         <i class="fas fa-arrow-left"></i>
       </button>
-      <h2 class="view-title"><i class="fas fa-utensils"></i> Cozinha</h2>
+      <h2 class="view-title"><i class="fas fa-utensils"></i> Cozinha</h2> 
       <div class="spacer"></div>
       <button v-if="lote.length" class="view-action-btn" @click="limparLote" title="Limpar Lote">
         <i class="fas fa-trash-alt"></i>
       </button>
     </header>
 
-    <div class="modal-filter-bar">
-      <div class="modal-chips">
+    <div class="cat-filter-wrap">
+      <div class="chips">
         <button 
           v-for="c in categorias" 
           :key="c" 
@@ -44,7 +44,7 @@
       </div>
 
       <div v-if="lote.length" class="batch-content">
-        <div class="section-label">📋 Itens no Lote</div>
+        <div class="section-label"><i class="fas fa-clipboard-list"></i> Itens no Lote</div>
         <div class="planned-items">
           <div v-for="(item, idx) in lote" :key="idx" class="plan-group">
             <div class="plan-card">
@@ -76,7 +76,7 @@
 
         <div class="sheet-card mt-16">
           <div class="sheet-body">
-            <div class="section-label">🥣 Total para pesar (Consolidado)</div>
+            <div class="section-label"><i class="fas fa-blender"></i> Total para pesar (Consolidado)</div>
             <div class="checklist">
               <div v-for="ing in ingredientesAgrupados" :key="ing.id" class="check-item" :class="{ 'done': checklist[ing.id] }" @click="checklist[ing.id] = !checklist[ing.id]">
                 <div class="check-box"><i class="fas" :class="checklist[ing.id] ? 'fa-check-square' : 'fa-square'"></i></div>
@@ -85,7 +85,7 @@
                     <div class="check-name">{{ ing.nome }}</div>
                     <div class="check-val">{{ fmtQ(ing.total, ing.unidade) }}</div>
                   </div>
-                <div v-if="ing.subIngredientes" class="plan-sub-list" style="margin-left:0; margin-top:6px;">
+                <div v-if="ing.subIngredientes" class="plan-sub-list" style="margin-left:0">
                   <div v-for="sub in ing.subIngredientes" :key="sub.id" class="plan-sub-item">
                     <span>└ {{ sub.nome }}</span>
                     <span>{{ fmtQ(sub.total, sub.unidade) }}</span>
@@ -495,61 +495,21 @@ function limparLote() {
   padding-bottom: 40px;
 }
 
-.modal-filter-bar {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 10px 0 0;
-  flex-shrink: 0;
-}
-.modal-chips {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding: 0 16px 12px;
-}
-.modal-chips::-webkit-scrollbar { display: none; }
-
-.spacer { flex: 1; }
-
-.quick-add-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; padding: 16px; border-bottom: 1px solid var(--border); }
-.qa-btn { background: #fff; border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: var(--shadow-sm); cursor: pointer; user-select: none; -webkit-touch-callout: none; }
-.qa-btn:active { background: var(--gold-bg); transform: scale(0.97); }
-.qa-name { font-size: .85rem; font-weight: 700; color: var(--brown); text-align: center; line-height: 1.2; }
-.qa-un { font-size: .7rem; color: var(--gold-dark); font-weight: 600; }
-
-.plan-group { margin-bottom: 8px; border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; background: #fff; }
-.plan-card { padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; border: none; margin-bottom: 0; }
-.plan-details { background: var(--bg); padding: 8px 12px; border-top: 1px solid var(--border); }
-.plan-ing-row { padding: 4px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
-.plan-ing-row:last-child { border-bottom: none; }
-.plan-ing-info { display: flex; justify-content: space-between; font-size: 0.85rem; }
-.plan-ing-nome { color: var(--brown-mid); font-weight: 600; }
-.plan-ing-qtd { font-family: var(--mono); font-weight: 700; color: var(--brown); }
-.plan-sub-list { margin-left: 12px; margin-top: 2px; font-size: 0.75rem; color: var(--muted); }
-.plan-sub-item { display: flex; justify-content: space-between; padding: 1px 0; }
-
-.badge-shortcut {
-  padding: 2px 10px;
-  border-radius: var(--r-full);
-  background: var(--gold-bg);
-  border: 1px solid #e8d5a0;
-  color: var(--gold-dark);
-  font-size: .68rem;
-  font-weight: 700;
-  margin-top: 4px;
-  white-space: nowrap;
-}
-
 .batch-content { padding: 16px; }
 .planned-items { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 .plan-card { background: #fff; border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; }
 .plan-name { font-weight: 700; font-size: .9rem; color: var(--brown); }
 .plan-sub { font-size: .75rem; color: var(--muted); }
 
+.quick-add-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 12px 16px 24px;
+}
+
 .qty-ctrl-sm { display: flex; align-items: center; gap: 12px; background: var(--bg); border-radius: 20px; padding: 4px; border: 1px solid var(--border); }
 .btn-qty-sm { border: none; background: #fff; width: 32px; height: 32px; border-radius: 50%; font-size: 1.2rem; font-weight: bold; color: var(--gold-dark); box-shadow: var(--shadow-sm); cursor: pointer; }
-.qty-val { font-family: var(--mono); font-weight: 800; font-size: 1rem; min-width: 24px; text-align: center; }
 
 .qty-input-cozinha {
   width: 60px;
@@ -569,46 +529,36 @@ function limparLote() {
 .qty-input-cozinha::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .qty-input-cozinha:focus { outline: none; }
 
-.mt-16 { margin-top: 16px; }
-.mb-32 { margin-bottom: 32px; }
-
-.sheet-card { background: #fff; border-radius: var(--r-lg); border: 1px solid var(--border); box-shadow: var(--shadow-sm); overflow: hidden; }
-.sheet-body { padding: 20px; }
-.section-label { font-size: .7rem; font-weight: 800; text-transform: uppercase; color: var(--gold-dark); letter-spacing: 1px; margin-bottom: 15px; }
-
-.checklist { display: flex; flex-direction: column; gap: 10px; }
-.check-item { display: flex; align-items: center; padding: 14px; background: var(--bg); border-radius: var(--r-md); cursor: pointer; border: 1px solid transparent; }
-.check-item.done { opacity: 0.5; background: #f8fafc; border-color: var(--border); }
-.check-box { font-size: 1.4rem; margin-right: 15px; color: var(--gold); }
-.done .check-box { color: var(--green); }
-.check-info { flex: 1; display: flex; flex-direction: column; }
-.check-main { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.check-name { font-weight: 700; font-size: 1rem; color: var(--brown); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
-.done .check-name { text-decoration: line-through; }
-.check-val { 
-  font-family: var(--mono); 
-  font-weight: 800; 
-  font-size: 0.95rem; 
-  color: var(--brown-dark); 
-  background: #fff; 
-  padding: 2px 6px; 
-  border-radius: var(--r-sm); 
-  border: 1px solid var(--border);
-  flex-shrink: 0;
-  margin-left: 8px;
+.qa-btn { 
+  background: #fff; border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px 8px; 
+  display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: var(--shadow-sm); 
+  cursor: pointer; user-select: none; -webkit-touch-callout: none; position: relative; min-height: 88px; justify-content: center;
 }
+.qa-btn:active { background: var(--gold-bg); transform: scale(0.97); }
+.qa-name { font-size: .85rem; font-weight: 700; color: var(--brown); text-align: center; line-height: 1.2; }
 
-.plan-sub-list { display: flex; flex-direction: column; gap: 2px; }
-.plan-sub-item { display: flex; justify-content: space-between; padding: 1px 0; font-size: 0.78rem; color: var(--muted); }
+.plan-group { margin-bottom: 8px; border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; background: #fff; }
+.plan-card { padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; border: none; margin-bottom: 0; }
+.plan-details { background: var(--bg); padding: 8px 12px; border-top: 1px solid var(--border); }
+.plan-ing-row { padding: 4px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+.plan-ing-row:last-child { border-bottom: none; }
+.plan-ing-info { display: flex; justify-content: space-between; font-size: 0.85rem; }
+.plan-ing-nome { color: var(--brown-mid); font-weight: 600; }
+.plan-ing-qtd { font-family: var(--mono); font-weight: 700; color: var(--brown); }
 
-@media (max-width: 400px) {
-  .check-name { font-size: 0.9rem; }
-  .check-val { font-size: 0.85rem; padding: 2px 4px; }
+.badge-shortcut {
+  padding: 2px 10px;
+  border-radius: var(--r-full);
+  background: var(--gold-bg);
+  border: 1px solid #e8d5a0;
+  color: var(--gold-dark);
+  font-size: .68rem;
+  font-weight: 700;
+  margin-top: 4px;
+  white-space: nowrap;
 }
 
 /* ── MELHORIA 2: Badge de quantidade na grid ─────────────────── */
-.qa-btn { position: relative; }
-
 .qa-badge {
   position: absolute;
   top: 6px;
@@ -699,18 +649,15 @@ function limparLote() {
 .stepper-anim-leave-to { opacity: 0; transform: scale(0.8); }
 .btn-full { width: 100%; justify-content: center; }
 
-.pesagem-header {
-  display: flex;
-  justify-content: space-between;
-  padding: 14px 16px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
-}
-
 @keyframes floatUp {
   0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
   100% { opacity: 0; transform: translateX(-50%) translateY(-40px); }
+}
+
+@media (max-width: 360px) {
+  .quick-add-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 </style>

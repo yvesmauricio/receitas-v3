@@ -54,7 +54,7 @@
         </div>
       </div>
 
-      <div class="backup-btns" style="margin-top:12px">
+      <div class="backup-btns mt-12">
         <button
           class="btn btn-secondary btn-full"
           :disabled="!s.googleDriveConfigured || driveLoading"

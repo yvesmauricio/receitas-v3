@@ -1,12 +1,23 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
+import purgecss from 'vite-plugin-purgecss'
 
 export default defineConfig({
   base: '/receitas-v3/', // 👈 ESSENCIAL pro GitHub Pages
 
   plugins: [
     vue(),
+
+    purgecss({
+      content: ['./index.html', './src/**/*.{vue,js}'],
+      safelist: {
+        standard: [/fa-/, /badge-/, /toast-/, /icon-/, /c-/], // Mantém classes de ícones, badges, toasts e cores
+        deep: [/confirm-/, /stepper-/], // Mantém classes internas de componentes dinâmicos
+        greedy: [/swipe-/] // Mantém tudo relacionado ao SwipeRow
+      },
+      variables: true // Limpa variáveis CSS (--var) não utilizadas também
+    }),
 
     VitePWA({
       registerType: 'autoUpdate',

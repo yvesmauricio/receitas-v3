@@ -12,11 +12,11 @@
         <input v-model="busca" class="search-input" type="search" placeholder="Buscar por receita, categoria ou data..." />
       </div>
       <div class="cat-filter-wrap">
-        <div class="cat-chips">
+        <div class="chips">
           <button
             v-for="f in filtros"
             :key="f.v"
-            class="cat-chip"
+            class="chip"
             :class="{ active: filtroAtivo === f.v }"
             @click="setFiltro(f.v)"
           >{{ f.l }}</button>
@@ -90,7 +90,7 @@
     </div>
 
     <BaseModal v-if="currentModal === 'cozinha-historico'" title="Lista de Preparo do Lote" @close="fecharModal">
-      <div class="modal-inner">
+      <div class="modal-inner-prod">
       <div class="pesagem-header">
         <div class="pesagem-stat"><span>Itens:</span> <strong>{{ loteHistorico.length}}</strong></div>
         <div class="pesagem-stat"><span>Qtde:</span> <strong>{{ historicoGrupo?.quantidadeTotal || 0 }}</strong></div>
@@ -100,7 +100,7 @@
       <div class="sheet-card mt-16">
         <div class="sheet-body">
           <template v-if="historicoInsumosGlobais.length">
-            <div class="section-label group-title highlight-gold">
+            <div class="section-label highlight-gold">
               <i class="fas fa-fill-drip"></i> Total para Cobertura / Uso Geral
             </div>
             <div class="global-summary mb-12">
@@ -111,7 +111,7 @@
             </div>
           </template>
 
-          <div class="section-label">🥣 Total para pesar (Consolidado)</div>
+          <div class="section-label"><i class="fas fa-blender"></i> Total para pesar (Consolidado)</div>
           <div class="checklist">
             <div v-for="ing in historicoIngredientesAgrupados" 
                  :key="ing.id" 
@@ -126,7 +126,7 @@
                   <div class="check-name">{{ ing.nome }}</div>
                   <div class="check-val">{{ fmtQ(ing.total, ing.unidade) }}</div>
                 </div>
-                <div v-if="ing.subIngredientes" class="plan-sub-list" style="margin-left:0; margin-top:6px;">
+                <div v-if="ing.subIngredientes" class="plan-sub-list">
                   <div v-for="sub in ing.subIngredientes" :key="sub.nome" class="plan-sub-item">
                     <span>└ {{ sub.nome }}</span>
                     <span>{{ fmtQ(sub.total, sub.unidade) }}</span>
@@ -136,7 +136,7 @@
             </div>
           </div>
 
-          <div class="section-label">📋 Detalhes por Item</div>
+          <div class="section-label"><i class="fas fa-clipboard-list"></i> Detalhes por Item</div>
           <div v-for="item in loteHistoricoComIngredientes" :key="item.uid" class="prep-card">
             <button class="prep-card-head" type="button" @click="toggleHistoricoItem(item.uid)">
               <div class="prep-card-summary">
@@ -170,16 +170,15 @@
               </div>
 
               <div v-else class="history-empty-ing mb-12">
-                Receita não encontrada no cadastro atual para reconstruir os ingredientes desse item.
+                Receita não encontrada no cadastro atual para reconstruir os ingredientes.
               </div>
             </div>
           </div>
         </div>
       </div>
 
-
       <div v-if="historicoComPreparo.length" class="mt-16">
-        <div class="section-label">📝 Notas de Preparo</div>
+        <div class="section-label"><i class="fas fa-pencil-alt"></i> Notas de Preparo</div>
         <div v-for="item in historicoComPreparo" :key="item.id" class="prep-note">
           <strong>{{ item.nome }}:</strong> {{ item.modo }}
         </div>
@@ -542,23 +541,6 @@ onMounted(() => setFiltro('7dias'))
 </script>
 
 <style scoped>
-/* ── Utilitários ── */
-.loading-box { display:flex; justify-content:center; padding:40px }
-.row-right { text-align:right; flex-shrink:0 }
-.mt-12 { margin-top:12px }
-.mb-12 { margin-bottom:12px }
-.mt-16 { margin-top:16px }
-.ml-4  { margin-left:4px }
-.spacer { flex:1 }
-
-.cat-filter-wrap { margin:-4px -16px 0; padding:6px 0 0; background:var(--surface) }
-.cat-chips { display:flex; gap:8px; overflow-x:auto; padding:0 16px 2px; scrollbar-width:none }
-.cat-chips::-webkit-scrollbar { display:none }
-.cat-chip { flex-shrink:0; padding:8px 16px; border-radius:20px; border:1.5px solid var(--border); background:#fff; font-size:.76rem; font-weight:700; color:var(--muted); cursor:pointer; min-height:36px }
-.cat-chip.active { background:var(--brown); color:#fff; border-color:var(--brown) }
-
-.row-cost { font-weight:700; color:var(--orange) }
-
 /* ── Produção: lista de grupos ── */
 .production-groups { display:flex; flex-direction:column; gap:10px; padding:8px 0 }
 
@@ -601,50 +583,6 @@ onMounted(() => setFiltro('7dias'))
 
 .production-card-body { border-top:1px solid var(--border); background:var(--bg); padding: 0; }
 
-/* Estilização da linha para combinar com Receitas/Insumos */
-.list-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 14px;
-  background: var(--card);
-}
-
-.recipe-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.95rem;
-  flex-shrink: 0;
-}
-
-.row-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.row-name {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: var(--brown);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.row-sub {
-  font-size: 0.72rem;
-  color: var(--muted);
-}
-
-.row-val { font-size: 0.9rem; font-weight: 800; font-family: var(--mono); }
-
 /* Ajuste de alinhamento das listas internas para não duplicar margens */
 .production-card-body :deep(.swipe-wrap) {
   margin-left: 0;
@@ -666,27 +604,6 @@ onMounted(() => setFiltro('7dias'))
 }
 .pesagem-stat { font-size:.85rem; color:var(--muted) }
 .pesagem-stat strong { color:var(--brown); font-weight:800 }
-
-.sheet-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--shadow-sm); margin:0 16px }
-.sheet-body { padding:14px}
-
-.prep-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  overflow: hidden;
-  margin-bottom: 12px;
-  box-shadow: var(--shadow-sm);
-}
-
-.plan-sub-list { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
-.plan-sub-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 0.78rem;
-  color: var(--muted);
-}
 
 .prep-card-head {
   width: 100%;
@@ -842,46 +759,6 @@ onMounted(() => setFiltro('7dias'))
   font-family: var(--mono);
   color: var(--gold-dark);
 }
-
-.checklist { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
-.check-item { display: flex; align-items: center; padding: 14px; background: var(--bg); border-radius: var(--r-md); cursor: pointer; border: 1px solid transparent; transition: all var(--t); }
-.check-item.done { opacity: 0.5; background: #f8fafc; border-color: var(--border); }
-
-.check-box { font-size: 1.4rem; margin-right: 15px; color: var(--gold); flex-shrink: 0; }
-.done .check-box { color: var(--green); }
-
-.check-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.check-main { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-
-.check-name { 
-  font-weight: 700; font-size: 0.95rem; color: var(--brown); 
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
-  flex: 1;
-}
-.done .check-name { text-decoration: line-through; color: var(--muted); }
-
-.check-val { 
-  font-family: var(--mono); font-weight: 800; font-size: 0.9rem; 
-  color: var(--brown-dark); background: #fff; 
-  padding: 2px 8px; border-radius: var(--r-sm); 
-  border: 1px solid var(--border);
-  flex-shrink: 0; margin-left: 8px;
-}
-
-/* ── Seção label ── */
-.section-label {
-  font-size:.72rem;
-  font-weight:800;
-  text-transform:uppercase;
-  letter-spacing:.7px;
-  color:var(--gold-dark);
-  margin-bottom:8px;
-  display:flex;
-  align-items:center;
-  gap:5px;
-}
-
-/* ── Misc ── */
 .swipe-btn {
   display:flex;
   flex-direction:column;
@@ -895,13 +772,230 @@ onMounted(() => setFiltro('7dias'))
 .swipe-btn:active { filter:brightness(.85) }
 .swipe-btn.estornar { background:var(--orange) }
 
-.empty { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:52px 24px; text-align:center; gap:10px }
-.empty i { font-size:2.8rem; color:var(--border2); margin-bottom:4px }
-.empty h3 { font-size:.95rem; font-weight:700; color:var(--muted) }
+.modal-inner-prod {
+  padding: 0 0 24px; /* Use global modal-inner padding */
+}
+.modal-inner-prod > *:first-child {
+  padding-top: 16px;
+}
 
-.modal-inner {
+.pesagem-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--r-lg) var(--r-lg) 0 0; /* Rounded top corners */
+  margin-bottom: 0; /* Override default margin-bottom from TabCozinha */
+}
+
+.pesagem-stat {
+  font-size: .85rem;
+  color: var(--muted);
+}
+.pesagem-stat strong {
+  color: var(--brown);
+  font-weight: 800;
+}
+
+.section-label.highlight-gold {
+  color: var(--gold-dark); /* Already default, but explicit */
+}
+.section-label.highlight-gold i {
+  color: var(--gold-dark); /* Make icon gold too */
+}
+
+.global-summary {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
+  padding: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  margin-top: 4px;
+}
+
+.global-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: #fff;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+}
+
+.global-item span {
+  font-size: .86rem;
+  font-weight: 700;
+  color: var(--brown);
+}
+
+.global-item strong {
+  font-size: .95rem;
+  font-weight: 800;
+  font-family: var(--mono);
+  color: var(--gold-dark);
+}
+
+.prep-card {
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: #fff;
+}
+
+.prep-card-head {
+  width: 100%;
+  border: none;
+  background: var(--surface);
+  padding: 10px 12px; /* Adjusted for a slightly smaller header */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+  transition: background var(--t);
+  cursor: pointer;
+  min-height: 56px; /* Ensure consistent height */
+}
+.prep-card-head:active {
+  background: var(--bg);
+}
+
+.prep-card-summary {
+  flex: 1;
+  min-width: 0;
+}
+.group-title {
+  font-size: .9rem; /* Slightly smaller for item title */
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--brown-dark);
+}
+.group-title i {
+  font-size: .8rem;
+  color: var(--brown-mid);
+}
+
+.prep-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px; /* Slightly less margin */
+  font-size: .75rem; /* Slightly smaller */
+  color: var(--muted);
+  align-items: center;
+}
+
+.prep-chip {
+  background: var(--cream);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  padding: 4px 8px; /* Smaller padding */
+  font-size: .7rem; /* Smaller font */
+  font-weight: 700;
+}
+
+.prep-chevron {
+  font-size: .8rem; /* Slightly smaller */
+  color: var(--muted);
+  transition: transform var(--t);
+}
+.prep-chevron.open {
+  transform: rotate(180deg);
+}
+
+.prep-card-body {
+  background: var(--cream);
+  padding: 12px 14px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.prep-ingredient-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.prep-ingredient-row {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.prep-ingredient-row:last-child {
+  border-bottom: none;
+}
+
+.prep-ingredient-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.prep-ingredient-name {
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--brown-dark);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.prep-ingredient-qty {
+  font-size: .88rem;
+  font-weight: 700;
+  font-family: var(--mono);
+  color: var(--brown);
+}
+
+.prep-sublist {
+  margin-top: 8px;
+  padding-left: 16px;
+  display: grid;
+  gap: 6px;
+}
+
+.prep-subitem {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: .82rem;
+  color: var(--muted);
+}
+
+.prep-subitem strong {
+  color: var(--brown);
+  font-family: var(--mono);
+}
+
+.history-empty-ing {
+  font-size: .8rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 16px;
+}
+
+.prep-note {
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  font-size: .85rem;
+  line-height: 1.5;
+  color: var(--brown-mid);
+}
+.prep-note strong {
+  color: var(--brown-dark);
+  font-weight: 700;
 }
 </style>

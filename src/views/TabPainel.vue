@@ -25,7 +25,7 @@
           </div>
           <div class="stat-card">
             <span class="stat-label">Custo Total</span>
-            <span class="stat-val c-red">{{ R$(stats.totalCusto) }}</span>
+            <span class="stat-val c-orange">{{ R$(stats.totalCusto) }}</span> 
           </div>
           <div class="stat-card">
             <span class="stat-label">Faturamento</span>
@@ -40,7 +40,7 @@
         </div>
 
         <!-- Gráfico de Categorias -->
-        <div class="section-label">📊 Produção por Categoria</div>
+        <div class="section-label"><i class="fas fa-chart-bar"></i> Produção por Categoria</div>
         <div class="sheet-card mb-16">
           <div class="sheet-body">
             <div v-if="!stats.porCategoria.length" class="empty-mini">Sem produções no período</div>
@@ -57,7 +57,7 @@
         </div>
 
         <!-- Ranking de Receitas -->
-        <div class="section-label">🏆 Ranking de Receitas</div>
+        <div class="section-label"><i class="fas fa-trophy"></i> Ranking de Receitas</div>
         <div class="sheet-card mb-16">
           <div class="sheet-body p-0">
             <div v-if="!stats.topReceitas.length" class="empty-mini">Sem dados no período</div>
@@ -76,7 +76,7 @@
         </div>
 
         <!-- Ingredientes Consumidos -->
-        <div class="section-label">🥣 Ingredientes Consumidos</div>
+        <div class="section-label"><i class="fas fa-blender"></i> Ingredientes Consumidos</div>
         <div class="sheet-card mb-16">
           <div class="sheet-body">
             <div v-if="!stats.consumoInsumos.length" class="empty-mini">Sem dados no período</div>
@@ -204,8 +204,6 @@ const stats = computed(() => {
   padding: 16px 16px 100px;
 }
 
-.loading-box { display: flex; justify-content: center; padding: 40px; }
-
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -232,30 +230,6 @@ const stats = computed(() => {
 }
 .stat-val { font-size: 1.1rem; font-weight: 800; color: var(--brown); font-family: var(--mono); }
 .stat-val small { font-size: 0.8rem; font-weight: 400; }
-.c-red { color: var(--orange); }
-.c-green { color: var(--green); }
-
-.section-label {
-  font-size: 0.65rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: var(--gold-dark);
-  letter-spacing: 1px;
-  margin-bottom: 10px;
-}
-
-.sheet-card {
-  background: var(--surface);
-  border-radius: var(--r-lg);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-}
-.sheet-body { padding: 14px; }
-.p-0 { padding: 0; }
-.mb-16 { margin-bottom: 16px; }
-.mb-10 { margin-bottom: 10px; }
-
 .list-row {
   display: flex;
   align-items: center;

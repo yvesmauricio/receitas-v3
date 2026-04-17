@@ -8,13 +8,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "vue": "^3.4.0",
+    "dexie": "^4.0.7",
     "pinia": "^2.1.7",
-    "dexie": "^4.0.7"
+    "vue": "^3.4.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",
     "vite": "^5.2.0",
+    "vite-plugin-purgecss": "^0.2.13",
     "vite-plugin-pwa": "^0.20.0"
   }
 }
