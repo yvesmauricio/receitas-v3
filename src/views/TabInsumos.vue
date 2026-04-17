@@ -142,6 +142,15 @@
           </div>
           <div class="hint">Ex.: 1 kg de compra = 1000 g de uso na receita</div>
         </div>
+
+        <div v-if="form.unidade_base === 'un'" class="fg">
+          <label class="label">Peso de 1 unidade (g)</label>
+          <div class="input-with-unit">
+            <input v-model.number="form.peso_unitario" class="input" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Ex: 15" />
+            <span class="input-unit-tag">g</span>
+          </div>
+          <div class="hint">Informe o peso individual para que o sistema calcule o peso total da receita corretamente.</div>
+        </div>
       </div>
 
       <!-- ── Seção: Custo ── -->
@@ -238,10 +247,11 @@ const lista = computed(() => {
 
 /* ── Formulário ───────────────────────────────────────────────── */
 const form = reactive({
-  id: null, uuid: null, nome: '', tipo: 'insumo',
+  uuid: null, nome: '', tipo: 'insumo',
   unidade_compra: 'kg', unidade_base: 'g',
   fator_conversao: 1000, estoque_atual: 0, estoque_minimo: 0,
-  custo_por_unidade: 0
+  custo_por_unidade: 0,
+  peso_unitario: 0
 })
 
 const custoPorBase = computed(() => {
@@ -263,9 +273,6 @@ const custoPorBaseRaw = computed(() => {
 function tipoBadge(t) {
   return { insumo: 'badge-muted', base: 'badge-blue', final: 'badge-gold', embalagem: 'badge-orange' }[t] || 'badge-muted'
 }
-function tipoLabel(t) {
-  return { insumo: 'Ingrediente', base: 'Base/Recheio', final: 'Produto final', embalagem: 'Embalagem' }[t] || t || '-'
-}
 function tipoIcon(t) {
   return {
     insumo: 'fas fa-mortar-pestle',
@@ -282,6 +289,7 @@ function abrir(p) {
     unidade_compra: 'kg', unidade_base: 'g',
     fator_conversao: 1000, estoque_atual: 0, estoque_minimo: 0,
     custo_por_unidade: 0,
+    peso_unitario: 0,
     ...(p || {})
   })
   modalHistoryToken = pushOverlayHistory(() => {

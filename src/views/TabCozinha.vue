@@ -347,7 +347,6 @@ function adicionarAoLote(r) {
       nome: r.nome,
       qtd_produzir: passo,
       rendimento_base: r.rendimento || 1,
-      passo_forma: passo,
       unidade: r.unidade_rendimento,
       peso_unitario: r.peso_unitario || 0,
       peso_total: passo * (r.peso_unitario || 0),
@@ -695,19 +694,6 @@ function limparLote() {
 .stepper-anim-leave-active { transition: opacity 0.15s ease, transform 0.15s ease; }
 .stepper-anim-enter-from,
 .stepper-anim-leave-to { opacity: 0; transform: scale(0.8); }
-
-.static-list { display: flex; flex-direction: column; gap: 8px; }
-.static-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--bg); border-radius: var(--r-sm); border: 1px solid var(--border); }
-.static-name { font-size: 0.9rem; font-weight: 600; color: var(--brown); }
-.static-val { font-family: var(--mono); font-weight: 700; color: var(--brown-dark); background: #fff; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border); }
-
-.static-items-grid { display: flex; flex-direction: column; gap: 8px; }
-.static-item-card { display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: #fff; }
-.static-item-name { font-weight: 800; font-size: 0.9rem; color: var(--brown-dark); }
-.static-item-sub { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
-.static-item-qty { font-weight: 700; color: var(--gold-dark); font-size: 0.85rem; }
-
-.c-orange { color: var(--orange) !important; }
 .btn-full { width: 100%; justify-content: center; }
 
 .pesagem-header {

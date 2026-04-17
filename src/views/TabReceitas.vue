@@ -59,7 +59,7 @@
               <i class="fas fa-pencil"></i>
               <span>Editar</span>
             </button>
-            <button class="swipe-btn del" @click="excluirDieto(r)">
+            <button class="swipe-btn del" @click="excluirDireto(r)">
               <i class="fas fa-trash"></i>
               <span>Excluir</span>
             </button>
@@ -324,6 +324,7 @@
 
       </div>
       <template #foot>
+        <div class="spacer"></div>
         <button class="btn btn-secondary" @click="fecharModal">Fechar</button>
       </template>
     </BaseModal>
@@ -423,7 +424,13 @@ const totalIngredientesG = computed(() => {
     if (!soma) continue
 
     if (ing.tipo === 'produto') {
-      total += qtd
+      const prod = s.produtos.find(p => p.uuid === ing.id)
+      // Se for unidade e tiver peso unitário, multiplica. Senão, assume que a quantidade já é o peso (g/ml)
+      if (prod && prod.unidade_base === 'un' && (prod.peso_unitario || 0) > 0) {
+        total += qtd * prod.peso_unitario
+      } else {
+        total += qtd
+      }
     } else if (ing.tipo === 'receita') {
       const sub  = s.receitas.find(r => r.uuid === ing.id)
       if (!sub) continue
@@ -612,9 +619,14 @@ function abrir(r) {
 
 /* ── Salvar / Excluir ─────────────────────────────────────────── */
 async function salvar() {
-  if (!form.eh_intermediaria && pesoEsperado.value && Math.abs(diferencaPeso.value) > 1) {
-    s.notify('Peso da receita não bate com o rendimento!', 'error'); return
+  if (!form.eh_intermediaria && pesoEsperado.value && Math.abs(diferencaPeso.value) > 5) {
+    const ok = await confirm.ask(
+      `A soma dos ingredientes (${totalIngredientesG.value.toFixed(0)}g) difere do peso esperado (${pesoEsperado.value.toFixed(0)}g). Deseja salvar assim mesmo?`,
+      { title: 'Divergência de Peso', type: 'warning', confirmLabel: 'Salvar mesmo assim' }
+    )
+    if (!ok) return
   }
+
   saving.value = true
   try {
     const payload = { ...form }

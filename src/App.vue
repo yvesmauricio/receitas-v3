@@ -77,6 +77,7 @@
 
       </div><!-- /modal-inner -->
       <template #foot>
+        <div class="spacer"></div>
         <button class="btn btn-secondary" @click="closeSettings">Cancelar</button>
         <button class="btn btn-primary" @click="salvarConfig">Salvar</button>
       </template>
@@ -209,4 +210,5 @@ watch(() => s.modal?.id, (next, prev) => {
 .drive-ok  .drive-status-title { color: var(--green); }
 .drive-off .drive-status-title { color: var(--muted); }
 .drive-status-sub  { font-size: .74rem; color: var(--muted); margin-top: 2px; }
+.spacer { flex: 1; }
 </style>

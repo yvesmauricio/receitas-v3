@@ -6,7 +6,7 @@ import { isGoogleDriveBackupConfigured, salvarBackupNoDrive, restaurarBackupDoDr
 export const useStore = defineStore('choco', () => {
 
   // ── UI ─────────────────────────────────────
-  const tab     = ref('producao')
+  const tab     = ref('painel')
   const loading = ref(false)
   const toast   = ref(null)
   const modal   = ref(null)
@@ -18,7 +18,7 @@ export const useStore = defineStore('choco', () => {
 
   // ── Config ────────────────────────────────
   const company = ref({
-    nome: 'Meu Caderno de Receitas',
+    nome: 'ChocoBete Produção',
     slogan: 'Registro de Produção'
   })
   const googleDriveConfigured = computed(() => isGoogleDriveBackupConfigured())
@@ -40,15 +40,15 @@ export const useStore = defineStore('choco', () => {
   // ── UI Actions ────────────────────────────
   function setTab(t) { tab.value = t }
 
+  function openModal(id, props = {}) { modal.value = { id, props } }
+  function closeModal() { modal.value = null }
+
   let _toastTimer = null
   function notify(msg, tipo = 'success', ms = 3000) {
     clearTimeout(_toastTimer)
     toast.value = { msg, tipo, id: Date.now() }
     if (ms > 0) _toastTimer = setTimeout(() => toast.value = null, ms)
   }
-
-  function openModal(id, props = {}) { modal.value = { id, props } }
-  function closeModal() { modal.value = null }
 
   // ── INIT ──────────────────────────────────
   async function init() {
@@ -69,13 +69,6 @@ export const useStore = defineStore('choco', () => {
       }))
       producoes.value = pr
       if (cfg) company.value = cfg
-
-      const receitasLegadas = r.filter(receita => receita.categoria === 'Nenhuma')
-      if (receitasLegadas.length) {
-        await Promise.all(receitasLegadas.map(receita =>
-          db.receitas.put({ ...receita, categoria: '' })
-        ))
-      }
     } finally {
       loading.value = false
     }
