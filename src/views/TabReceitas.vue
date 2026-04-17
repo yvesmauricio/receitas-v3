@@ -12,11 +12,11 @@
         <input v-model="busca" class="search-input" type="search" placeholder="Buscar receita…" />
       </div>
       <div class="cat-filter-wrap">
-        <div class="chips">
+        <div class="cat-chips">
           <button
             v-for="c in categoriasFiltro"
             :key="c"
-            class="chip"
+            class="cat-chip"
             :class="{ active: categoriaAtiva === c }"
             @click="categoriaAtiva = c"
           >{{ c }}</button>
@@ -105,12 +105,12 @@
         <!-- Categoria: chips horizontais -->
         <div class="fg">
           <label class="label">Categoria <span class="label-opt">(opcional)</span></label>
-          <div class="chips">
+          <div class="cat-pill-row">
             <button
               v-for="c in categoriasFiltro.filter(x => x !== 'Todas')"
               :key="c"
               type="button"
-              class="chip"
+              class="cat-pill"
               :class="{ active: form.categoria === c }"
               @click="form.categoria = form.categoria === c ? '' : c"
             >{{ c }}</button>
@@ -225,7 +225,7 @@
 
       <!-- ── Seção: Preparo ── -->
       <div class="form-section">
-        <div class="form-section-label"><i class="fas fa-utensils"></i> Modo de preparo <span class="label-opt">(opcional)</span></div>
+        <div class="form-section-label"><i class="fas fa-utensils"></i> Modo de preparo <span class="label-opt" style="text-transform:none;letter-spacing:0;font-weight:500">(opcional)</span></div>
         <div class="fg">
           <textarea v-model="form.modo_preparo" class="input textarea-preparo" rows="4" placeholder="Descreva o passo a passo da receita…"></textarea>
         </div>
@@ -650,4 +650,415 @@ async function excluirDireto(r) {
   await s.excluirReceita(r.uuid)
 }
 </script>
-<style scoped></style>
+
+<style scoped>
+/* ── Lista ── */
+.loading-box { display:flex; justify-content:center; padding:40px }
+.tab-content { padding-top:8px }
+.spacer { flex:1 }
+.mt-8  { margin-top:8px }
+.mt-10 { margin-top:10px }
+.mt-12 { margin-top:12px }
+.mt-16 { margin-top:16px }
+
+.cat-filter-wrap { margin:-4px -16px 0; padding:6px 0 0; background:var(--surface) }
+.cat-chips { display:flex; gap:8px; overflow-x:auto; padding:0 16px 2px; scrollbar-width:none }
+.cat-chips::-webkit-scrollbar { display:none }
+.cat-chip { flex-shrink:0; padding:8px 16px; border-radius:20px; border:1.5px solid var(--border); background:#fff; font-size:.76rem; font-weight:700; color:var(--muted); cursor:pointer; min-height:36px }
+.cat-chip.active { background:var(--brown); color:#fff; border-color:var(--brown) }
+
+.row-chevron { color:var(--border2); font-size:.75rem; flex-shrink:0; margin-left:4px }
+.recipe-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:.95rem; flex-shrink:0 }
+.recipe-price  { color:var(--green); font-weight:700; font-family:var(--mono) }
+.recipe-dot    { color:var(--border2) }
+.recipe-profit { font-size:.75rem; color:var(--brown-mid); font-weight:700 }
+.recipe-profit.negative { color:var(--red) }
+.recipe-type-tag { flex-shrink:0 }
+
+.swipe-btn { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; width:60px; height:100%; border:none; color:#fff; font-size:.64rem; font-weight:800; letter-spacing:.3px; cursor:pointer; text-transform:uppercase }
+.swipe-btn i { font-size:1.1rem }
+.swipe-btn.edit { background:var(--gold-dark) }
+.swipe-btn.del  { background:#dc2626 }
+.swipe-btn:active { filter:brightness(.88) }
+
+/* ── Formulário: Seções ── */
+.form-section {
+  padding: 16px 16px;
+  border-bottom: 8px solid var(--bg);
+}
+.form-section:first-of-type { border-top: none }
+.form-section:last-of-type  { border-bottom: none; padding-bottom: 28px }
+.form-section .fg:last-child { margin-bottom: 0 }
+
+.form-section-label {
+  font-size: .72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  color: var(--gold-dark);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.form-section-label i { font-size: .8rem; color: var(--brown-mid) }
+.label-opt { font-size: .75rem; font-weight: 500; color: var(--muted); text-transform: none; letter-spacing: 0 }
+
+/* ── Option cards (tipo de receita) ── */
+.option-grid { display:grid; gap:8px }
+.option-grid-2 { grid-template-columns:1fr 1fr }
+
+.option-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  transition: all var(--t);
+  min-height: 52px;
+}
+.option-card:active { transform: scale(.96) }
+.option-card.active {
+  border-color: var(--brown-mid);
+  background: var(--gold-bg);
+}
+.option-ico { font-size: 1.1rem; color: var(--muted); transition: color var(--t); }
+.option-card.active .option-ico { color: var(--gold-dark); }
+.option-label { font-size: .82rem; font-weight: 700; color: var(--muted); transition: color var(--t); }
+.option-card.active .option-label { color: var(--brown-dark) }
+
+/* ── Categoria pills (horizontal scroll) ── */
+.cat-pill-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  margin: 0 -16px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+.cat-pill-row::-webkit-scrollbar { display: none }
+.cat-pill {
+  flex-shrink: 0;
+  padding: 9px 16px;
+  border-radius: var(--r-full);
+  border: 1.5px solid var(--border);
+  background: var(--cream);
+  color: var(--muted);
+  font-size: .8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  min-height: 40px;
+  transition: all var(--t);
+}
+.cat-pill.active {
+  background: var(--brown);
+  color: #fff;
+  border-color: var(--brown);
+}
+.cat-pill:active { transform: scale(.95) }
+
+/* ── Rendimento row ── */
+.render-row {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.render-row-slim {
+  display: grid;
+  grid-template-columns: 1fr 1.8fr;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.unit-pill-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 6px;
+}
+.unit-pill-grid-5 { grid-template-columns: repeat(5, minmax(0,1fr)) }
+
+.unit-pill {
+  padding: 8px 4px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--cream);
+  color: var(--muted);
+  font-size: .75rem;
+  font-weight: 700;
+  text-align: center;
+  min-height: 40px;
+  transition: all var(--t);
+}
+.unit-pill:active { transform: scale(.95) }
+.unit-pill.active { border-color: var(--brown-mid); background: var(--brown); color: #fff; }
+
+/* ── Input com prefixo ── */
+.input-with-prefix {
+  display: flex;
+  align-items: stretch;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  transition: border-color var(--t);
+}
+.input-with-prefix:focus-within {
+  border-color: var(--brown-mid);
+  box-shadow: 0 0 0 3px rgba(122,69,32,.12);
+}
+.input-prefix {
+  display: flex;
+  align-items: center;
+  padding: 0 11px;
+  background: var(--cream-deep);
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 700;
+  border-right: 1.5px solid var(--border);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.input-prefixed {
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  flex: 1;
+  min-width: 0;
+}
+.input-prefixed:focus { outline: none }
+
+/* ── Painel de lucratividade ── */
+.profit-panel {
+  background: var(--green-bg);
+  border: 1px solid var(--green-dim);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.profit-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.profit-row-total { padding-top: 8px }
+.profit-label { font-size: .82rem; color: var(--muted) }
+.profit-val   { font-size: .88rem; font-weight: 800; font-family: var(--mono); color: var(--brown) }
+.profit-val.cost { color: var(--orange) }
+.profit-val.gain { color: var(--green) }
+.profit-val.loss { color: var(--red) }
+.profit-divider { height: 1px; background: var(--green-dim); margin: 2px 0 }
+
+/* ── Ingredientes ── */
+.ing-empty-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  background: var(--cream);
+  border: 1.5px dashed var(--border2);
+  border-radius: var(--r-md);
+  font-size: .85rem;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.ing-empty-state i { font-size: 1.1rem; color: var(--brown-light); flex-shrink: 0 }
+.ing-empty-state strong { color: var(--brown-mid) }
+
+.ing-row-slim {
+  margin-bottom: 6px;
+}
+
+.ing-row-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 4px 4px 4px 8px;
+  min-height: 52px;
+}
+.ing-row-content.is-recipe {
+  background: #f0f8ff;
+  border-color: #bfdbfe;
+}
+
+.ing-btn-name {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  min-width: 0;
+  padding: 0;
+}
+
+.ing-ico-sm { font-size: 1rem; flex-shrink: 0; }
+.ing-name-txt {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--brown-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ing-qty-field {
+  display: flex;
+  align-items: center;
+  background: var(--bg);
+  border-radius: var(--r-xs);
+  border: 1px solid var(--border);
+  padding-right: 6px;
+  width: 85px;
+  flex-shrink: 0;
+}
+
+.ing-input-slim {
+  width: 100%;
+  border: none;
+  background: var(--surface);
+  padding: 6px 4px;
+  font-size: 0.88rem;
+  font-family: var(--mono);
+  font-weight: 800;
+  text-align: right;
+  border-radius: var(--r-xs) 0 0 var(--r-xs);
+}
+.ing-input-slim:focus { outline: none; background: #fff; }
+
+.ing-unit-slim {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--muted);
+  margin-left: 2px;
+  text-transform: lowercase;
+}
+
+.ing-actions-slim { display: flex; gap: 4px; }
+.btn-action-slim {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-xs);
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--border2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+}
+.btn-action-slim.active { color: var(--gold-dark); background: var(--gold-bg); border-color: var(--gold-dark); }
+.btn-del-slim { background: var(--red-bg); color: var(--red); border-color: transparent; }
+
+/* Botões de adicionar */
+.btn-add-ing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 13px;
+  border: 2px dashed var(--border2);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--brown-mid);
+  font-size: .875rem;
+  font-weight: 700;
+  margin-top: 8px;
+  min-height: 50px;
+  transition: all var(--t);
+}
+.btn-add-ing:active { background: var(--cream); border-color: var(--brown-light); transform: scale(.98) }
+
+.btn-ing-detail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 11px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--cream);
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 700;
+  margin-top: 6px;
+  min-height: 44px;
+  transition: all var(--t);
+}
+.btn-ing-detail:active { background: var(--cream-deep) }
+
+/* ── Textarea preparo ── */
+.textarea-preparo {
+  resize: vertical;
+  min-height: 96px;
+  line-height: 1.6;
+}
+
+/* ── Footer ── */
+.btn-icon-only { min-width: 48px; padding: 12px }
+
+/* ── Detalhes de ingredientes (modal) ── */
+.details-list { display:flex; flex-direction:column; gap:8px }
+.details-row {
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:12px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface)
+}
+.details-main { min-width:0 }
+.details-name { font-size:.9rem; font-weight:700; color:var(--text) }
+.details-sub  { font-size:.78rem; color:var(--muted); margin-top:3px }
+.details-value { font-size:.86rem; font-weight:800; color:var(--brown); white-space:nowrap }
+.details-total {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-top:14px; padding:12px 14px; border-radius:var(--r-sm);
+  background:var(--cream); border:1px solid var(--border);
+  font-size:.9rem; color:var(--brown-dark)
+}
+
+/* ── Picker de ingredientes ── */
+.picker-list { display:flex; flex-direction:column; gap:4px }
+.picker-grupo-label { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); padding:12px 4px 6px }
+.picker-row {
+  display:flex; align-items:center; gap:10px; padding:13px 12px;
+  border-radius:var(--r-sm); border:1.5px solid var(--border);
+  background:var(--surface); cursor:pointer; min-height:56px; transition:background var(--t)
+}
+.picker-row:active { background:var(--gold-bg) }
+.picker-row-base   { border-color:#bfdbfe; background:#f0f8ff }
+.picker-row-base:active { background:#dbeafe }
+.picker-criar      { border-color:var(--green-dim); background:var(--green-bg) }
+.picker-criar:active { background:#d1fae5 }
+.picker-criar-icon {
+  width:36px; height:36px; border-radius:50%;
+  background:var(--green); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:.9rem; flex-shrink:0
+}
+.picker-tipo-badge { font-size:1.2rem; flex-shrink:0 }
+.picker-row-info { flex:1; min-width:0 }
+.picker-row-nome { font-size:.9rem; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.picker-row-sub  { font-size:.78rem; color:var(--muted); margin-top:2px }
+.picker-vazio    { text-align:center; color:var(--muted); font-size:.875rem; padding:28px 0 }
+.c-gold { color:var(--gold-dark) }
+
+@media (max-width:380px) {
+  .render-row { grid-template-columns: 1fr 1fr; }
+  .render-peso { grid-column: 1 / -1; }
+  .type-label { font-size:.8rem }
+}
+/* padding dos modals picker / detalhes */
+.modal-inner { padding: 16px 16px 24px }
+</style>

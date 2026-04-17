@@ -120,12 +120,6 @@ button{cursor:pointer;font-family:var(--font);touch-action:manipulation}
 .chip:active{transform:scale(.96)}
 .chip-count{background:var(--red);color:#fff;border-radius:50%;width:16px;height:16px;font-size:.6rem;display:inline-flex;align-items:center;justify-content:center;margin-left:3px}
 
-/* ── Filter Bars Layout ── */
-.cat-filter-wrap { margin:-4px -16px 0; padding:6px 0 0; background:var(--surface) }
-
-/* Ajuste de espaçamento para chips em barras de filtro (evita encostar nas bordas) */
-.cat-filter-wrap .chips { padding: 0 16px 12px; gap: 8px; }
-
 /* ── Buttons ── */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:12px 20px;border-radius:var(--r-sm);border:none;font-size:.9rem;font-weight:700;min-height:48px;transition:opacity var(--t),transform var(--t),box-shadow var(--t);letter-spacing:-.1px}
 .btn:active{transform:scale(.96)}
@@ -196,209 +190,9 @@ select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xml
 .kpi-sub{font-size:.72rem;color:var(--muted);margin-top:5px}
 .c-gold{color:var(--gold-dark)}
 .c-red{color:var(--red)}
-.c-orange{color:var(--orange)}
 .c-green{color:var(--green)}
 .c-blue{color:var(--blue)}
 .c-brown{color:var(--brown)}
-
-/* --- List Icons & Specific Colors --- */
-.ing-icon, .recipe-icon { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0 }
-.recipe-icon { width:38px; height:38px; border-radius:10px; font-size:.95rem }
-.ing-preco, .recipe-price { font-family:var(--mono); font-weight:700; color:var(--brown); font-size:.82rem }
-.recipe-price { color:var(--green) }
-.ing-dot, .recipe-dot { color:var(--border2) }
-.recipe-profit { font-size:.75rem; color:var(--brown-mid); font-weight:700 }
-.recipe-profit.negative { color:var(--red) }
-.row-chevron { color:var(--border2); font-size:.75rem; flex-shrink:0; margin-left:4px }
-
-/* --- Sheet Card (Common UI Card) --- */
-.sheet-card {
-  background: var(--surface);
-  border-radius: var(--r-lg);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-}
-.sheet-body { padding: 14px; } /* Default padding, can be overridden */
-
-/* --- Form Elements --- */
-.label-opt { font-size: .75rem; font-weight: 500; color: var(--muted); text-transform: none; letter-spacing: 0 }
-
-.form-section {
-  padding: 16px 16px;
-  border-bottom: 8px solid var(--bg);
-}
-.form-section:first-of-type { border-top: none }
-.form-section:last-of-type  { border-bottom: none; padding-bottom: 28px } /* Adjusted for modal foot */
-.form-section .fg:last-child { margin-bottom: 0 }
-
-.form-section-label {
-  font-size: .72rem; /* Standardized */
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: .7px; /* Standardized */
-  color: var(--gold-dark);
-  margin-bottom: 14px; /* Standardized */
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.form-section-label i { font-size: .8rem; color: var(--brown-mid) }
-
-/* --- Option Cards (e.g., Tipo de Receita/Ingrediente) --- */
-.option-grid { display:grid; gap:8px }
-.option-grid-2 { grid-template-columns:1fr 1fr }
-.option-grid-3 { grid-template-columns:1fr 1fr 1fr }
-
-.option-card {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 10px;
-  padding: 10px 14px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--r-md);
-  background: var(--surface);
-  transition: all var(--t);
-  min-height: 52px;
-}
-.option-card:active { transform: scale(.96) }
-.option-card.active {
-  border-color: var(--brown-mid);
-  background: var(--gold-bg);
-}
-.option-ico { font-size: 1.1rem; color: var(--muted); transition: color var(--t); }
-.option-card.active .option-ico { color: var(--gold-dark); }
-.option-label { font-size: .82rem; font-weight: 700; color: var(--muted); transition: color var(--t); }
-.option-card.active .option-label { color: var(--brown-dark) }
-
-/* --- Unit Pills --- */
-.unit-pill-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0,1fr)); /* Default to 4 columns */
-  gap: 6px;
-}
-.unit-pill-grid-4 { grid-template-columns: repeat(4, minmax(0,1fr)) }
-.unit-pill-grid-5 { grid-template-columns: repeat(5, minmax(0,1fr)) }
-
-.unit-pill {
-  padding: 10px 6px; /* Standardized from TabInsumos */
-  border: 1.5px solid var(--border);
-  border-radius: var(--r-sm);
-  background: var(--cream);
-  color: var(--muted);
-  font-size: .82rem; /* Standardized from TabInsumos */
-  font-weight: 700;
-  text-align: center;
-  min-height: 44px; /* Standardized from TabInsumos */
-  transition: all var(--t);
-}
-.unit-pill:active { transform: scale(.95) }
-.unit-pill.active { border-color: var(--brown-mid); background: var(--brown); color: #fff; }
-
-/* --- Input Groups (Prefix/Suffix) --- */
-.input-with-prefix, .input-with-unit { display: flex; align-items: stretch; border: 1.5px solid var(--border); border-radius: var(--r-sm); overflow: hidden; transition: border-color var(--t); }
-.input-with-prefix:focus-within, .input-with-unit:focus-within { border-color: var(--brown-mid); box-shadow: 0 0 0 3px rgba(122,69,32,.12); }
-.input-prefix { display: flex; align-items: center; padding: 0 11px; background: var(--cream-deep); color: var(--muted); font-size: .82rem; font-weight: 700; border-right: 1.5px solid var(--border); white-space: nowrap; flex-shrink: 0; }
-.input-unit-tag { display: flex; align-items: center; padding: 0 12px; background: var(--cream-deep); color: var(--muted); font-size: .82rem; font-weight: 700; border-left: 1.5px solid var(--border); flex-shrink: 0; }
-.input-prefixed, .input-with-unit .input { border: none !important; border-radius: 0 !important; box-shadow: none !important; flex: 1; min-width: 0; }
-.input-prefixed:focus, .input-with-unit .input:focus { outline: none }
-
-/* --- Profit Panel (Recipe Modal) --- */
-.profit-panel { background:var(--green-bg); border:1px solid var(--green-dim); border-radius:var(--r-md); padding:12px 14px; margin-top:12px; display:flex; flex-direction:column; gap:6px }
-.profit-row { display:flex; justify-content:space-between; align-items:center }
-.profit-row-total { padding-top:8px }
-.profit-label { font-size:.82rem; color:var(--muted) }
-.profit-val { font-size:.88rem; font-weight:800; font-family:var(--mono); color:var(--brown) }
-.profit-val.cost { color:var(--orange) }
-.profit-val.gain { color:var(--green) }
-.profit-val.loss { color:var(--red) }
-.profit-divider { height:1px; background:var(--green-dim); margin:2px 0 }
-
-/* --- Ingredients List in Recipe Form --- */
-.ing-empty-state { display:flex; align-items:center; gap:10px; padding:14px; background:var(--cream); border:1.5px dashed var(--border2); border-radius:var(--r-md); font-size:.85rem; color:var(--muted); line-height:1.5; margin-bottom:10px }
-.ing-empty-state i { font-size:1.1rem; color:var(--brown-light); flex-shrink:0 }
-.ing-empty-state strong { color:var(--brown-mid) }
-
-.ing-row-slim { margin-bottom: 6px; }
-.ing-row-content { display:flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md); padding:4px 4px 4px 8px; min-height:52px }
-.ing-row-content.is-recipe { background:#f0f8ff; border-color:#bfdbfe }
-
-.ing-btn-name { flex:1; display:flex; align-items:center; gap:6px; background:transparent; border:none; text-align:left; min-width:0; padding:0 }
-.ing-ico-sm { font-size:1rem; flex-shrink:0 }
-.ing-name-txt { font-size:0.82rem; font-weight:700; color:var(--brown-dark); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
-
-.ing-qty-field { display:flex; align-items:center; background:var(--bg); border-radius:var(--r-xs); border:1px solid var(--border); padding-right:6px; width:85px; flex-shrink:0 }
-.ing-input-slim { width:100%; border:none; background:var(--surface); padding:6px 4px; font-size:0.88rem; font-family:var(--mono); font-weight:800; text-align:right; border-radius:var(--r-xs) 0 0 var(--r-xs) }
-.ing-input-slim:focus { outline:none; background:#fff }
-.ing-unit-slim { font-size:0.65rem; font-weight:800; color:var(--muted); margin-left:2px; text-transform:lowercase }
-
-.ing-actions-slim { display:flex; gap:4px }
-.btn-action-slim { width:34px; height:34px; border-radius:var(--r-xs); border:1px solid var(--border); background:#fff; color:var(--border2); display:flex; align-items:center; justify-content:center; font-size:0.8rem; transition: all var(--t); }
-.btn-action-slim.active { color:var(--gold-dark); background:var(--gold-bg); border-color:var(--gold-dark) }
-.btn-del-slim { background:var(--red-bg); color:var(--red); border-color:transparent }
-
-.btn-add-ing { display:flex; align-items:center; justify-content:center; gap:7px; width:100%; padding:13px; border:2px dashed var(--border2); border-radius:var(--r-md); background:transparent; color:var(--brown-mid); font-size:.875rem; font-weight:700; margin-top:8px; min-height:50px; transition:all var(--t) }
-.btn-add-ing:active { background:var(--cream); border-color:var(--brown-light); transform:scale(.98) }
-
-.btn-ing-detail { display:flex; align-items:center; justify-content:center; gap:7px; width:100%; padding:11px; border:1.5px solid var(--border); border-radius:var(--r-sm); background:var(--cream); color:var(--muted); font-size:.82rem; font-weight:700; margin-top:6px; min-height:44px; transition:all var(--t) }
-.btn-ing-detail:active { background:var(--cream-deep) }
-
-/* --- Picker & Details Modals --- */
-.picker-list { display:flex; flex-direction:column; gap:4px }
-.picker-grupo-label { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); padding:12px 4px 6px }
-.picker-row { display:flex; align-items:center; gap:10px; padding:13px 12px; border-radius:var(--r-sm); border:1.5px solid var(--border); background:var(--surface); cursor:pointer; min-height:56px; transition:background var(--t) }
-.picker-row:active { background:var(--gold-bg) }
-.picker-row-base { border-color:#bfdbfe; background:#f0f8ff }
-.picker-row-base:active { background:#dbeafe }
-.picker-criar { border-color:var(--green-dim); background:var(--green-bg) }
-.picker-criar:active { background:#d1fae5 }
-.picker-criar-icon { width:36px; height:36px; border-radius:50%; background:var(--green); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.9rem; flex-shrink:0 }
-.picker-tipo-badge { font-size:1.2rem; flex-shrink:0 }
-.picker-row-info { flex:1; min-width:0 }
-.picker-row-nome { font-size:.9rem; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
-.picker-row-sub { font-size:.78rem; color:var(--muted); margin-top:2px }
-.picker-vazio { text-align:center; color:var(--muted); font-size:.875rem; padding:28px 0 }
-
-.details-list { display:flex; flex-direction:column; gap:8px }
-.details-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface) }
-.details-main { min-width:0 }
-.details-name { font-size:.9rem; font-weight:700; color:var(--text) }
-.details-sub { font-size:.78rem; color:var(--muted); margin-top:3px }
-.details-value { font-size:.86rem; font-weight:800; color:var(--brown); white-space:nowrap }
-.details-total { display:flex; align-items:center; justify-content:space-between; margin-top:14px; padding:12px 14px; border-radius:var(--r-sm); background:var(--cream); border:1px solid var(--border); font-size:.9rem; color:var(--brown-dark) }
-
-/* --- Modo de Preparo (Textarea) --- */
-.textarea-preparo { resize:vertical; min-height:96px; line-height:1.6 }
-
-/* --- Rendimento Row --- */
-.render-row { display: grid; grid-template-columns: 1fr 1.5fr; gap: 8px; margin-bottom: 4px; }
-.render-row-slim { display: grid; grid-template-columns: 1fr 1.8fr; gap: 10px; margin-bottom: 4px; }
-
-/* --- Checklist & Consolidation (TabCozinha / TabProducao) --- */
-.checklist { display: flex; flex-direction: column; gap: 10px; }
-.check-item { display: flex; align-items: center; padding: 14px; background: var(--bg); border-radius: var(--r-md); cursor: pointer; border: 1px solid transparent; transition: all var(--t); }
-.check-item.done { opacity: 0.5; background: #f8fafc; border-color: var(--border); }
-.check-box { font-size: 1.4rem; margin-right: 15px; color: var(--gold); flex-shrink: 0; }
-.done .check-box { color: var(--green); }
-.check-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.check-main { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.check-name { font-weight: 700; font-size: 0.95rem; color: var(--brown); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
-.done .check-name { text-decoration: line-through; color: var(--muted); }
-.check-val { font-family: var(--mono); font-weight: 800; font-size: 0.9rem; color: var(--brown-dark); background: #fff; padding: 2px 8px; border-radius: var(--r-sm); border: 1px solid var(--border); flex-shrink: 0; margin-left: 8px; }
-
-/* --- Sub-item lists (Inside consolidated rows) --- */
-.plan-sub-list { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
-.plan-sub-item { display: flex; justify-content: space-between; gap: 10px; font-size: 0.78rem; color: var(--muted); }
-
-/* --- Custo Card --- */
-.custo-card { display: flex; align-items: center; gap: 8px; padding: 11px 13px; background: var(--gold-bg); border: 1px solid #e8d5a0; border-radius: var(--r-sm); font-size: .83rem; color: var(--brown-mid); line-height: 1.4; margin-top: 4px; }
-.custo-ico { color: var(--gold-dark); flex-shrink: 0 }
-.custo-card strong { color: var(--brown-dark); font-weight: 800 }
-
-/* --- Button Icon Only --- */
-.btn-icon-only { min-width: 48px; padding: 12px }
 
 /* ── CTA ── */
 .cta-list{padding:12px 16px 0;display:flex;flex-direction:column;gap:8px}
@@ -430,19 +224,7 @@ select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xml
 .ico-red{background:var(--red-bg);color:var(--red)}
 
 /* ── Misc ── */
-/* --- Section Label (Unified) --- */
-.section-label {
-  font-size: .72rem; /* Standardized */
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: .7px; /* Standardized */
-  color: var(--gold-dark);
-  margin-bottom: 12px; /* Unificado */
-  display: flex;
-  align-items: center;
-  gap: 6px; /* Standardized */
-}
-.section-label i { font-size: .8rem; color: var(--brown-mid) } /* Added for consistency */
+.sec-label{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--gold-dark);margin-bottom:9px}
 .scroll-sec{padding:14px 16px}
 .scroll-sec+.scroll-sec{padding-top:0}
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:52px 24px;text-align:center;gap:10px}
@@ -558,10 +340,6 @@ select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xml
 .p-0{padding:0}
 
 @media(max-width:380px){
-  .render-row { grid-template-columns: 1fr 1fr; }
-  .render-row-slim { grid-template-columns: 1fr 1.5fr; }
-  .details-name { font-size: 0.85rem; }
-  .details-value { font-size: 0.8rem; }
   .kpi-val{font-size:1.1rem}
   .btn{padding:11px 16px}
   .modal-body{padding:14px 16px}

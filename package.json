@@ -15,7 +15,6 @@
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",
     "vite": "^5.2.0",
-    "vite-plugin-purgecss": "^0.2.13",
     "vite-plugin-pwa": "^0.20.0"
   }
 }
