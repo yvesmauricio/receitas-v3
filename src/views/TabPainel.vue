@@ -95,7 +95,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useStore } from '../store.js'
 import { R$, avatarColor, fmtQtd as fmtQ } from '../utils.js'
 
@@ -106,6 +106,14 @@ const periodos = [
   { v: '30dias', l: '30 Dias' },
   { v: 'total', l: 'Tudo' }
 ]
+
+const atualizarDados = () => {
+  const dias = periodoAtivo.value === '7dias' ? 7 : periodoAtivo.value === '30dias' ? 30 : 0
+  s.carregarProducoes(dias)
+}
+
+watch(periodoAtivo, atualizarDados)
+onMounted(atualizarDados)
 
 // Explode recursivamente todos os insumos de uma receita (e suas sub-receitas)
 function explodirInsumos(receita, fatorAcumulado, mapa, visitados = new Set()) {

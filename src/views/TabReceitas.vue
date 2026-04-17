@@ -190,41 +190,30 @@
           <span>Toque em <strong>+ Adicionar</strong> para incluir ingredientes ou bases de outras receitas</span>
         </div>
 
-        <div v-for="(ing, i) in form.ingredientes" :key="ing._key" class="ing-row">
-          <!-- Botão de selecionar ingrediente -->
-          <button class="ing-pick-btn" :class="ing.tipo === 'receita' ? 'pick-base' : 'pick-insumo'" @click="abrirPicker(i)">
-            <span class="ing-pick-ico">{{ ing.tipo === 'receita' ? '🥣' : '📦' }}</span>
-            <span class="ing-pick-nome">{{ getNomeIng(ing) || 'Selecionar…' }}</span>
-            <i class="fas fa-chevron-down ing-pick-chev"></i>
-          </button>
-          <!-- Qtd + unidade + remover inline -->
-          <div class="ing-controls">
-            <input
-              v-model.number="ing.quantidade"
-              class="input ing-qty"
-              type="number"
-              inputmode="decimal"
-              min="0"
-              step="0.001"
-              placeholder="0"
-              :aria-label="`Quantidade de ${getNomeIng(ing)}`"
-            />
-            <span class="ing-unit-tag">{{ getUnidade(ing) }}</span>
-            
-            <!-- Seletor de Peso (Balança) -->
-            <button 
-              type="button" 
-              class="btn-weight" 
-              :class="{ active: ing.gera_peso !== false }" 
-              @click="ing.gera_peso = ing.gera_peso === false ? true : false"
-              :title="ing.gera_peso !== false ? 'Soma no peso total' : 'Não soma no peso'"
-            >
-              <i class="fas fa-balance-scale"></i>
+        <div v-for="(ing, i) in form.ingredientes" :key="ing._key" class="ing-row-slim">
+          <div class="ing-row-content" :class="{ 'is-recipe': ing.tipo === 'receita' }">
+            <!-- Seleção e Nome -->
+            <button class="ing-btn-name" @click="abrirPicker(i)">
+              <span class="ing-ico-sm">{{ ing.tipo === 'receita' ? '🥣' : '📦' }}</span>
+              <span class="ing-name-txt">{{ getNomeIng(ing) || 'Selecionar…' }}</span>
             </button>
 
-            <button class="ing-remove" type="button" :aria-label="`Remover ${getNomeIng(ing)}`" @click="removerIngrediente(i)">
-              <i class="fas fa-times"></i>
-            </button>
+            <!-- Quantidade Integrada -->
+            <div class="ing-qty-field">
+              <input v-model.number="ing.quantidade" type="number" inputmode="decimal" class="ing-input-slim" placeholder="0" />
+              <span class="ing-unit-slim">{{ getUnidade(ing) }}</span>
+            </div>
+
+            <!-- Ações Rápidas -->
+            <div class="ing-actions-slim">
+              <button type="button" class="btn-action-slim" :class="{ active: ing.gera_peso !== false }" 
+                @click="ing.gera_peso = ing.gera_peso === false ? true : false">
+                <i class="fas fa-balance-scale"></i>
+              </button>
+              <button type="button" class="btn-action-slim btn-del-slim" @click="removerIngrediente(i)">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -858,104 +847,94 @@ async function excluirDireto(r) {
 .ing-empty-state i { font-size: 1.1rem; color: var(--brown-light); flex-shrink: 0 }
 .ing-empty-state strong { color: var(--brown-mid) }
 
-.ing-row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border);
+.ing-row-slim {
+  margin-bottom: 6px;
 }
-.ing-row:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0 }
 
-/* Botão de seleção do ingrediente — linha inteira */
-.ing-pick-btn {
+.ing-row-content {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 11px 12px;
-  border-radius: var(--r-sm);
-  border: 1.5px solid var(--border);
+  gap: 6px;
   background: var(--surface);
-  text-align: left;
-  min-height: 48px;
-  transition: all var(--t);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 4px 4px 4px 8px;
+  min-height: 52px;
 }
-.ing-pick-btn:active { transform: scale(.99); background: var(--gold-bg) }
-.pick-insumo { border-color: var(--border2) }
-.pick-base   { border-color: #93c5fd; background: #f0f8ff }
-.ing-pick-ico  { font-size: 1.1rem; flex-shrink: 0 }
-.ing-pick-nome {
+.ing-row-content.is-recipe {
+  background: #f0f8ff;
+  border-color: #bfdbfe;
+}
+
+.ing-btn-name {
   flex: 1;
-  font-size: .88rem;
-  font-weight: 600;
-  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  min-width: 0;
+  padding: 0;
+}
+
+.ing-ico-sm { font-size: 1rem; flex-shrink: 0; }
+.ing-name-txt {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--brown-dark);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 0;
 }
-.ing-pick-chev { font-size: .75rem; color: var(--muted); flex-shrink: 0 }
 
-/* Controles de quantidade — linha abaixo */
-.ing-controls {
+.ing-qty-field {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 2px;
-}
-.ing-qty {
-  width: 90px;
+  background: var(--bg);
+  border-radius: var(--r-xs);
+  border: 1px solid var(--border);
+  padding-right: 6px;
+  width: 85px;
   flex-shrink: 0;
-  text-align: right;
-  padding: 10px 12px;
-  font-size: .95rem;
-  font-family: var(--mono);
-  font-weight: 700;
-}
-.ing-unit-tag {
-  flex: 1;
-  font-size: .82rem;
-  color: var(--muted);
-  font-weight: 600;
 }
 
-.btn-weight {
-  width: 40px;
-  height: 44px;
-  border-radius: var(--r-sm);
-  border: 1.5px solid var(--border);
+.ing-input-slim {
+  width: 100%;
+  border: none;
   background: var(--surface);
+  padding: 6px 4px;
+  font-size: 0.88rem;
+  font-family: var(--mono);
+  font-weight: 800;
+  text-align: right;
+  border-radius: var(--r-xs) 0 0 var(--r-xs);
+}
+.ing-input-slim:focus { outline: none; background: #fff; }
+
+.ing-unit-slim {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--muted);
+  margin-left: 2px;
+  text-transform: lowercase;
+}
+
+.ing-actions-slim { display: flex; gap: 4px; }
+.btn-action-slim {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-xs);
+  border: 1px solid var(--border);
+  background: #fff;
   color: var(--border2);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: .9rem;
-  flex-shrink: 0;
-  transition: all var(--t);
+  font-size: 0.8rem;
 }
-.btn-weight.active {
-  color: var(--gold-dark);
-  background: var(--gold-bg);
-  border-color: #e8d5a0;
-}
-
-.ing-remove {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--r-sm);
-  border: 1.5px solid var(--red-bg);
-  background: var(--red-bg);
-  color: var(--red);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: .9rem;
-  flex-shrink: 0;
-  transition: all var(--t);
-}
-.ing-remove:active { background: #fecaca; transform: scale(.93) }
+.btn-action-slim.active { color: var(--gold-dark); background: var(--gold-bg); border-color: var(--gold-dark); }
+.btn-del-slim { background: var(--red-bg); color: var(--red); border-color: transparent; }
 
 /* Botões de adicionar */
 .btn-add-ing {
