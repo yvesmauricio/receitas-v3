@@ -3,11 +3,24 @@
     <div class="tab-hdr">
       <div class="tab-hdr-top">
         <h2 class="tab-title"><i class="fas fa-industry"></i> Produção</h2>
-        <button class="btn-primary-sm" @click="s.setTab('cozinha')"><i class="fas fa-plus"></i> Produzir</button>
+        <div class="tab-actions">
+          <button class="btn-primary-sm" @click="s.setTab('cozinha')"><i class="fas fa-plus"></i> Produzir</button>
+        </div>
       </div>
-      <div class="chips">
-        <button v-for="f in filtros" :key="f.v" class="chip" :class="{ active: filtroAtivo === f.v }"
-          @click="setFiltro(f.v)">{{ f.l }}</button>
+      <div class="search-wrap">
+        <i class="fas fa-search search-icon"></i>
+        <input v-model="busca" class="search-input" type="search" placeholder="Buscar por receita, categoria ou data..." />
+      </div>
+      <div class="cat-filter-wrap">
+        <div class="cat-chips">
+          <button
+            v-for="f in filtros"
+            :key="f.v"
+            class="cat-chip"
+            :class="{ active: filtroAtivo === f.v }"
+            @click="setFiltro(f.v)"
+          >{{ f.l }}</button>
+        </div>
       </div>
     </div>
 
@@ -22,9 +35,11 @@
             <div class="production-card-main">
               <div class="production-card-title">Lote de {{ dataHoraBR(grupo.data) }}</div>
               <div class="production-card-sub">
-                <span class="prod-badge-mini">{{ grupo.itens.length }} item(ns)</span>
-                <span class="prod-badge-mini">{{ grupo.quantidadeTotal }}</span>
-                <div class="spacer"></div>
+                <span class="prod-badge-mini"><span>Custo: </span>{{ R$(grupo.custoTotal) }}</span>
+                <span v-if="grupo.lucroTotal > 0" class="prod-badge-mini profit">
+                  <span>Lucro: </span>{{ R$(grupo.lucroTotal) }}
+                </span>
+                  <div class="spacer"></div>
               </div>
             </div>
             <div class="production-card-side">
@@ -77,8 +92,9 @@
     <BaseModal v-if="currentModal === 'cozinha-historico'" title="Lista de Preparo do Lote" @close="fecharModal">
       <div class="modal-inner">
       <div class="pesagem-header">
-        <div class="pesagem-stat"><span>Lote:</span> <strong>{{ loteHistorico.length }} itens</strong></div>
-        <div class="pesagem-stat"><span>Custo Est.:</span> <strong>{{ R$(historicoGrupo?.custoTotal || 0) }}</strong></div>
+        <div class="pesagem-stat"><span>Itens:</span> <strong>{{ loteHistorico.length}}</strong></div>
+        <div class="pesagem-stat"><span>Qtde:</span> <strong>{{ historicoGrupo?.quantidadeTotal || 0 }}</strong></div>
+        <div class="pesagem-stat"><span>Custo:</span> <strong>{{ R$(historicoGrupo?.custoTotal || 0) }}</strong></div>
       </div>
 
       <div class="sheet-card mt-16">
@@ -199,7 +215,13 @@ const historicoGrupo = ref(null)
 const historicoChecklist = reactive({})
 const historicoAberto = ref({})
 const gruposAbertos = ref({})
-const filtros = [{ v: 'hoje', l: 'Hoje' }, { v: '7dias', l: '7 dias' }, { v: '30dias', l: '30 dias' }]
+const busca = ref('')
+const filtros = [
+  { v: 'hoje', l: 'Hoje' },
+  { v: '7dias', l: '7 dias' },
+  { v: '30dias', l: '30 dias' },
+  { v: 'total', l: 'Tudo' }
+]
 
 function isInsumoOculto(nome) {
   const chave = normalizar(nome)
@@ -263,12 +285,28 @@ function isHistoricoItemAberto(uid) {
 // ── Computados ────────────────────────────────────────────────
 const lista = computed(() => {
   const agora = new Date()
+  const q = normalizar(busca.value)
+
   return [...s.producoes]
     .filter(p => {
-      if (filtroAtivo.value === 'hoje') return (p.data_producao || '').slice(0, 10) === agora.toISOString().slice(0, 10)
-      const dias = filtroAtivo.value === '7dias' ? 7 : 30
-      const limite = new Date(agora); limite.setDate(agora.getDate() - dias)
-      return new Date(p.data_producao) >= limite
+      let matchTime = true
+      if (filtroAtivo.value === 'hoje') {
+        matchTime = (p.data_producao || '').slice(0, 10) === agora.toISOString().slice(0, 10)
+      } else if (filtroAtivo.value !== 'total') {
+        const dias = filtroAtivo.value === '7dias' ? 7 : 30
+        const limite = new Date(agora); limite.setDate(agora.getDate() - dias)
+        matchTime = new Date(p.data_producao) >= limite
+      }
+      
+      if (!matchTime) return false
+      if (!q) return true
+
+      const nome = normalizar(p.nome_receita || p.receita_nome)
+      const dataStr = normalizar(dataHoraBR(p.data_producao))
+      const rec = s.receitas.find(r => r.uuid === p.receita_id)
+      const cat = normalizar(rec?.categoria || '')
+
+      return nome.includes(q) || dataStr.includes(q) || cat.includes(q)
     })
     .sort((a, b) => (b.data_producao || '').localeCompare(a.data_producao || ''))
 })
@@ -284,6 +322,7 @@ const gruposProducao = computed(() => {
         data: item.data_producao,
         itens: [],
         custoTotal: 0,
+        vendaTotal: 0,
         quantidadeTotalNum: 0,
         unidadeResumo: item.unidade_rendimento || 'un',
         temBase: false,
@@ -294,6 +333,7 @@ const gruposProducao = computed(() => {
     const grupo = mapa.get(key)
     grupo.itens.push(item)
     grupo.custoTotal += getCustoProducao(item)
+    grupo.vendaTotal += getVendaProducao(item)
     grupo.quantidadeTotalNum += Number(item.quantidade_produzida || item.quantidade || 0)
     if (item.eh_intermediaria) grupo.temBase = true
     else grupo.temFinal = true
@@ -301,6 +341,7 @@ const gruposProducao = computed(() => {
 
   return Array.from(mapa.values()).map(grupo => ({
     ...grupo,
+    lucroTotal: grupo.vendaTotal - grupo.custoTotal,
     quantidadeTotal: `${fmtQ(grupo.quantidadeTotalNum, grupo.unidadeResumo)} total`
   }))
 })
@@ -421,7 +462,8 @@ const historicoComPreparo = computed(() =>
 // ── Métodos ───────────────────────────────────────────────────
 function setFiltro(v) {
   filtroAtivo.value = v
-  s.carregarProducoes(30)
+  const dias = v === 'hoje' ? 1 : v === '7dias' ? 7 : v === '30dias' ? 30 : 0
+  s.carregarProducoes(dias)
 }
 
 function toggleGrupo(id) {
@@ -429,6 +471,7 @@ function toggleGrupo(id) {
 }
 
 function isGrupoAberto(id) {
+  if (busca.value.trim().length > 1) return true
   return gruposAbertos.value[id] ?? false
 }
 
@@ -442,6 +485,12 @@ function getCustoProducao(p) {
   if (p.custo_unitario_snapshot != null) return p.custo_unitario_snapshot * qtd
   const r = s.receitas.find(rec => rec.uuid === p.receita_id)
   return r ? (s.getCustoTotal(r) / (r.rendimento || 1)) * qtd : 0
+}
+
+function getVendaProducao(p) {
+  const qtd = p.quantidade_produzida || p.quantidade || 0
+  const r = s.receitas.find(rec => rec.uuid === p.receita_id)
+  return r ? (r.preco_sugerido || 0) * qtd : 0
 }
 
 function limpar(n) {
@@ -501,6 +550,13 @@ onMounted(() => setFiltro('7dias'))
 .mt-16 { margin-top:16px }
 .ml-4  { margin-left:4px }
 .spacer { flex:1 }
+
+.cat-filter-wrap { margin:-4px -16px 0; padding:6px 0 0; background:var(--surface) }
+.cat-chips { display:flex; gap:8px; overflow-x:auto; padding:0 16px 2px; scrollbar-width:none }
+.cat-chips::-webkit-scrollbar { display:none }
+.cat-chip { flex-shrink:0; padding:8px 16px; border-radius:20px; border:1.5px solid var(--border); background:#fff; font-size:.76rem; font-weight:700; color:var(--muted); cursor:pointer; min-height:36px }
+.cat-chip.active { background:var(--brown); color:#fff; border-color:var(--brown) }
+
 .row-cost { font-weight:700; color:var(--orange) }
 
 /* ── Produção: lista de grupos ── */
@@ -528,6 +584,12 @@ onMounted(() => setFiltro('7dias'))
   font-weight: 700;
   color: var(--brown-mid);
   font-size: 0.7rem;
+}
+
+.prod-badge-mini.profit {
+  background: var(--green-bg);
+  border-color: var(--green-dim);
+  color: var(--green);
 }
 
 .production-card-side { display:flex; align-items:center; gap:8px; flex-shrink:0 }
@@ -615,6 +677,15 @@ onMounted(() => setFiltro('7dias'))
   overflow: hidden;
   margin-bottom: 12px;
   box-shadow: var(--shadow-sm);
+}
+
+.plan-sub-list { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
+.plan-sub-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.78rem;
+  color: var(--muted);
 }
 
 .prep-card-head {
@@ -708,6 +779,7 @@ onMounted(() => setFiltro('7dias'))
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
 }
 
 .prep-ingredient-qty {
@@ -740,33 +812,35 @@ onMounted(() => setFiltro('7dias'))
 .global-summary {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 16px;
-  background: var(--cream);
+  gap: 6px;
+  padding: 10px;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-  margin-top: 16px;
+  margin-top: 4px;
 }
 
 .global-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  padding: 8px 0;
+  padding: 10px 12px;
+  background: #fff;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
 }
 
 .global-item span {
-  font-size: .88rem;
+  font-size: .86rem;
   font-weight: 700;
-  color: var(--brown-dark);
+  color: var(--brown);
 }
 
 .global-item strong {
-  font-size: .88rem;
-  font-weight: 700;
+  font-size: .95rem;
+  font-weight: 800;
   font-family: var(--mono);
-  color: var(--brown);
+  color: var(--gold-dark);
 }
 
 .checklist { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
@@ -782,6 +856,7 @@ onMounted(() => setFiltro('7dias'))
 .check-name { 
   font-weight: 700; font-size: 0.95rem; color: var(--brown); 
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+  flex: 1;
 }
 .done .check-name { text-decoration: line-through; color: var(--muted); }
 

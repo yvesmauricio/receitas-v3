@@ -141,13 +141,17 @@ export const useStore = defineStore('choco', () => {
 
   // ── PRODUÇÕES ─────────────────────────────
   async function carregarProducoes(dias = 7) {
-    const desde = new Date()
-    if (dias > 0) desde.setDate(desde.getDate() - dias)
-    const iso = desde.toISOString().slice(0, 10)
-    producoes.value = await db.producoes
-      .where('data_producao')
-      .aboveOrEqual(iso)
-      .toArray()
+    if (dias <= 0) {
+      producoes.value = await db.producoes.toArray()
+    } else {
+      const desde = new Date()
+      desde.setDate(desde.getDate() - dias)
+      const iso = desde.toISOString().slice(0, 10)
+      producoes.value = await db.producoes
+        .where('data_producao')
+        .aboveOrEqual(iso)
+        .toArray()
+    }
   }
 
   // ── CRUD: INGREDIENTES (produtos) ────────

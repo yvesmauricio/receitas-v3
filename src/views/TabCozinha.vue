@@ -583,7 +583,7 @@ function limparLote() {
 .done .check-box { color: var(--green); }
 .check-info { flex: 1; display: flex; flex-direction: column; }
 .check-main { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.check-name { font-weight: 700; font-size: 1rem; color: var(--brown); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.check-name { font-weight: 700; font-size: 1rem; color: var(--brown); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
 .done .check-name { text-decoration: line-through; }
 .check-val { 
   font-family: var(--mono); 
@@ -597,6 +597,9 @@ function limparLote() {
   flex-shrink: 0;
   margin-left: 8px;
 }
+
+.plan-sub-list { display: flex; flex-direction: column; gap: 2px; }
+.plan-sub-item { display: flex; justify-content: space-between; padding: 1px 0; font-size: 0.78rem; color: var(--muted); }
 
 @media (max-width: 400px) {
   .check-name { font-size: 0.9rem; }
