@@ -651,7 +651,7 @@ async function excluir() {
 }
 
 // Excluir direto pelo swipe (sem modal aberto)
-async function excluirDieto(r) {
+async function excluirDireto(r) {
   closeAll()
   const ok = await confirm.ask(
     `Deseja excluir a receita "${r.nome}"? Esta ação não pode ser desfeita.`,

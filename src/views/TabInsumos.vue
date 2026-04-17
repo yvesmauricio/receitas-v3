@@ -285,7 +285,7 @@ function tipoIcon(t) {
 /* ── Modal ────────────────────────────────────────────────────── */
 function abrir(p) {
   Object.assign(form, {
-    id: null, uuid: null, nome: '', tipo: 'insumo',
+    uuid: null, nome: '', tipo: 'insumo',
     unidade_compra: 'kg', unidade_base: 'g',
     fator_conversao: 1000, estoque_atual: 0, estoque_minimo: 0,
     custo_por_unidade: 0,

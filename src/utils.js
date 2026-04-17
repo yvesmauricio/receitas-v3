@@ -38,3 +38,9 @@ export const normalizar = (s) =>
 export const nowLocal = () => {
   const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
 }
+
+const CORES = ['#7a4a1e','#0f766e','#1d4ed8','#7c3aed','#c45a09','#1a7a45','#b91c1c']
+export const avatarColor = (nome) => {
+  let h = 0; for (const c of String(nome || '')) h = (h * 31 + c.charCodeAt(0)) & 0xff
+  return CORES[h % CORES.length]
+}
