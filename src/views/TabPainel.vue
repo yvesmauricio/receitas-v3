@@ -4,13 +4,7 @@
       <div class="tab-hdr-top">
         <h2 class="tab-title"><i class="fas fa-chart-pie"></i> Painel de Negócio</h2>
       </div>
-      <div class="chips">
-        <button v-for="p in periodos" :key="p.v"
-                class="chip" :class="{ active: periodoAtivo === p.v }"
-                @click="periodoAtivo = p.v">
-          {{ p.l }}
-        </button>
-      </div>
+      <CategoryFilter v-model="periodoAtivo" :items="periodosNorm" />
     </div>
 
     <div class="painel-content">
@@ -25,7 +19,7 @@
           </div>
           <div class="stat-card">
             <span class="stat-label">Custo Total</span>
-            <span class="stat-val c-red">{{ R$(stats.totalCusto) }}</span>
+            <span class="stat-val c-orange">{{ R$(stats.totalCusto) }}</span>
           </div>
           <div class="stat-card">
             <span class="stat-label">Faturamento</span>
@@ -97,6 +91,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useStore } from '../store.js'
+import CategoryFilter from '../components/CategoryFilter.vue'
 import { R$, avatarColor, fmtQtd as fmtQ } from '../utils.js'
 
 const s = useStore()
@@ -106,6 +101,7 @@ const periodos = [
   { v: '30dias', l: '30 Dias' },
   { v: 'total', l: 'Tudo' }
 ]
+const periodosNorm = periodos.map(p => ({ value: p.v, label: p.l }))
 
 const atualizarDados = () => {
   const dias = periodoAtivo.value === '7dias' ? 7 : periodoAtivo.value === '30dias' ? 30 : 0
@@ -200,12 +196,9 @@ const stats = computed(() => {
 <style scoped>
 .tab-painel { display: flex; flex-direction: column; }
 
-.painel-content {
-  padding: 16px 16px 100px;
-}
+.painel-content { padding: 16px 16px 100px; }
 
-.loading-box { display: flex; justify-content: center; padding: 40px; }
-
+/* ── KPI cards do painel (layout exclusivo desta tela) ── */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -223,27 +216,17 @@ const stats = computed(() => {
 }
 .stat-card.highlight { background: var(--gold-bg); border-color: var(--gold); }
 .stat-label {
-  font-size: 0.65rem;
+  font-size: .65rem;
   font-weight: 800;
   text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 4px;
-  letter-spacing: 0.5px;
+  letter-spacing: .5px;
 }
 .stat-val { font-size: 1.1rem; font-weight: 800; color: var(--brown); font-family: var(--mono); }
-.stat-val small { font-size: 0.8rem; font-weight: 400; }
-.c-red { color: var(--orange); }
-.c-green { color: var(--green); }
+.stat-val small { font-size: .8rem; font-weight: 400; }
 
-.section-label {
-  font-size: 0.65rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: var(--gold-dark);
-  letter-spacing: 1px;
-  margin-bottom: 10px;
-}
-
+/* ── Cards de seção (exclusivos do painel) ── */
 .sheet-card {
   background: var(--surface);
   border-radius: var(--r-lg);
@@ -252,33 +235,19 @@ const stats = computed(() => {
   overflow: hidden;
 }
 .sheet-body { padding: 14px; }
-.p-0 { padding: 0; }
-.mb-16 { margin-bottom: 16px; }
-.mb-10 { margin-bottom: 10px; }
 
-.list-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 14px;
-  border-bottom: 1px solid var(--bg);
-}
-.list-row:last-child { border-bottom: none; }
-.row-rank { width: 28px; font-weight: 800; color: var(--gold); font-size: 0.8rem; flex-shrink: 0; }
-.row-info { flex: 1; min-width: 0; }
-.row-name { font-size: 0.88rem; font-weight: 700; color: var(--brown); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.row-sub { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
-.row-right { text-align: right; flex-shrink: 0; }
-.row-val { font-size: 0.9rem; font-weight: 800; font-family: var(--mono); }
+/* ── Ranking ── */
+.row-rank { width: 28px; font-weight: 800; color: var(--gold); font-size: .8rem; flex-shrink: 0; }
 
+/* ── Gráfico de barras ── */
 .chart-row { margin-bottom: 12px; }
 .chart-row:last-child { margin-bottom: 0; }
-.chart-info { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 5px; color: var(--text); }
+.chart-info { display: flex; justify-content: space-between; font-size: .85rem; margin-bottom: 5px; color: var(--text); }
 .chart-info strong { font-family: var(--mono); }
 .chart-bar-bg { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; }
-.chart-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease-out; }
+.chart-bar-fill { height: 100%; border-radius: 4px; transition: width .5s ease-out; }
 
-/* Insumos: lista vertical no lugar de grid-2 colunas */
+/* ── Lista de insumos consumidos ── */
 .insumo-list { display: flex; flex-direction: column; gap: 8px; }
 .insumo-row {
   display: flex;
@@ -289,9 +258,9 @@ const stats = computed(() => {
   border-radius: var(--r-sm);
   border-left: 3px solid var(--gold);
 }
-.usage-name { font-size: 0.83rem; font-weight: 600; color: var(--brown); }
-.usage-val { font-size: 0.85rem; font-family: var(--mono); font-weight: 700; color: var(--muted); }
+.usage-name { font-size: .83rem; font-weight: 600; color: var(--brown); }
+.usage-val { font-size: .85rem; font-family: var(--mono); font-weight: 700; color: var(--muted); }
 
-.hint { font-size: 0.75rem; color: var(--muted); font-style: italic; }
-.empty-mini { text-align: center; color: var(--muted); padding: 20px; font-size: 0.8rem; }
+.hint { font-size: .75rem; color: var(--muted); font-style: italic; }
+.empty-mini { text-align: center; color: var(--muted); padding: 20px; font-size: .8rem; }
 </style>

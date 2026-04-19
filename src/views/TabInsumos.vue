@@ -11,17 +11,7 @@
         <i class="fas fa-search search-icon"></i>
         <input v-model="busca" class="search-input" type="search" placeholder="Buscar ingrediente…" />
       </div>
-      <div class="cat-filter-wrap">
-        <div class="cat-chips">
-          <button
-            v-for="c in categoriasFiltro"
-            :key="c"
-            class="cat-chip"
-            :class="{ active: categoriaAtiva === c }"
-            @click="categoriaAtiva = c"
-          >{{ c }}</button>
-        </div>
-      </div>
+      <CategoryFilter v-model="categoriaAtiva" :items="categoriasFiltro" />
     </div>
 
     <section class="tab-content">
@@ -207,19 +197,17 @@ import { useStore } from '../store.js'
 import { R$, normalizar, parseMoney, maskMoney } from '../utils.js'
 import BaseModal from '../components/BaseModal.vue'
 import SwipeRow from '../components/SwipeRow.vue'
-import { useConfirm } from '../composables/useConfirm.js'
-import { useSwipe } from '../composables/useSwipe.js'
-import { pushOverlayHistory, closeOverlayHistory } from '../composables/overlayHistory.js'
+import CategoryFilter from '../components/CategoryFilter.vue'
+import { useModalStack } from '../composables/useModalStack.js'
+import { useDeleteConfirm } from '../composables/useDeleteConfirm.js'
 
 const s = useStore()
-const confirm = useConfirm()
-const { closeAll } = useSwipe()
+const { modal, abrirModal, fecharModal } = useModalStack()
+const { confirmarExclusao } = useDeleteConfirm()
 
 const busca  = ref('')
-const modal  = ref(null)
 const saving = ref(false)
 const categoriaAtiva = ref('Ingrediente')
-let modalHistoryToken = null
 
 const UNIDADES_COMPRA = ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pct', 'dz']
 const categoriasFiltro = ['Todas', 'Ingrediente', 'Embalagem']
@@ -292,18 +280,7 @@ function abrir(p) {
     peso_unitario: 0,
     ...(p || {})
   })
-  modalHistoryToken = pushOverlayHistory(() => {
-    modalHistoryToken = null
-    modal.value = null
-  })
-  modal.value = 'insumo'
-}
-
-function fecharModal() {
-  closeOverlayHistory(modalHistoryToken, () => {
-    modalHistoryToken = null
-    modal.value = null
-  })
+  abrirModal('insumo')
 }
 
 /* ── Ações ────────────────────────────────────────────────────── */
@@ -319,200 +296,25 @@ async function salvar() {
 // Excluir via botão no modal
 async function excluir() {
   if (!form.uuid) return
-  closeAll()
-  const ok = await confirm.ask(
-    `Deseja excluir o ingrediente "${form.nome}"? Esta ação não pode ser desfeita.`,
-    { title: 'Excluir Ingrediente', icon: 'fas fa-trash', confirmLabel: 'Excluir' }
-  )
-  if (!ok) return
-  await s.excluirProduto(form.uuid)
-  fecharModal()
+  await confirmarExclusao({
+    nome: form.nome, entidade: 'ingrediente',
+    onConfirm: () => s.excluirProduto(form.uuid),
+    onDone: fecharModal,
+  })
 }
 
 // Excluir direto pelo swipe (sem modal aberto)
 async function excluirDireto(p) {
-  closeAll()
-  const ok = await confirm.ask(
-    `Deseja excluir o ingrediente "${p.nome}"? Esta ação não pode ser desfeita.`,
-    { title: 'Excluir Ingrediente', icon: 'fas fa-trash', confirmLabel: 'Excluir' }
-  )
-  if (!ok) return
-  await s.excluirProduto(p.uuid)
+  await confirmarExclusao({
+    nome: p.nome, entidade: 'ingrediente',
+    onConfirm: () => s.excluirProduto(p.uuid),
+  })
 }
 </script>
 
 <style scoped>
-/* ── Lista ── */
-.loading-box { display:flex; justify-content:center; padding:40px }
-.tab-content { padding-top:8px }
-.mt-12 { margin-top:12px }
-.spacer { flex:1 }
-
-.cat-filter-wrap { margin:-4px -16px 0; padding:6px 0 0; background:var(--surface) }
-.cat-chips { display:flex; gap:8px; overflow-x:auto; padding:0 16px 2px; scrollbar-width:none }
-.cat-chips::-webkit-scrollbar { display:none }
-.cat-chip { flex-shrink:0; padding:8px 16px; border-radius:20px; border:1.5px solid var(--border); background:#fff; font-size:.76rem; font-weight:700; color:var(--muted); cursor:pointer; min-height:36px }
-.cat-chip.active { background:var(--brown); color:#fff; border-color:var(--brown) }
-
+/* ── Ícone de tipo do ingrediente (exclusivo desta tela) ── */
 .ing-icon { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0 }
-.row-chevron { color:var(--border2); font-size:.75rem; flex-shrink:0; margin-left:4px }
 .ing-preco { font-family:var(--mono); font-weight:700; color:var(--brown); font-size:.82rem }
-.ing-dot { color:var(--border2) }
-.ing-type-tag { flex-shrink:0 }
-
-/* ── Formulário: Seções ── */
-.form-section {
-  padding: 16px 16px;
-  border-bottom: 8px solid var(--bg);
-}
-.form-section:first-of-type { border-top: none }
-.form-section:last-of-type { border-bottom: none; margin-bottom: -18px; }
-.form-section .fg:last-child { margin-bottom: 0 }
-
-.form-section-label {
-  font-size: .72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: .7px;
-  color: var(--gold-dark);
-  margin-bottom: 14px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.form-section-label i { font-size: .8rem; color: var(--brown-mid) }
-
-/* ── Option cards (tipo de ingrediente) ── */
-.option-grid { display:grid; gap:8px }
-.option-grid-2 { grid-template-columns:1fr 1fr }
-
-.option-card {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 10px;
-  padding: 10px 14px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--r-md);
-  background: var(--surface);
-  transition: all var(--t);
-  min-height: 52px;
-}
-.option-card:active { transform: scale(.97) }
-.option-card.active {
-  border-color: var(--brown-mid);
-  background: var(--gold-bg);
-}
-.option-ico { font-size: 1.1rem; color: var(--muted); transition: color var(--t); }
-.option-card.active .option-ico { color: var(--gold-dark); }
-.option-label { font-size: .82rem; font-weight: 700; color: var(--muted); transition: color var(--t); }
-.option-card.active .option-label { color: var(--brown-dark) }
-
-/* ── Unit pills ── */
-.unit-pill-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0,1fr));
-  gap: 6px;
-}
-.unit-pill-grid-4 { grid-template-columns: repeat(4, minmax(0,1fr)) }
-
-.unit-pill {
-  padding: 10px 6px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--r-sm);
-  background: var(--cream);
-  color: var(--muted);
-  font-size: .82rem;
-  font-weight: 700;
-  text-align: center;
-  min-height: 44px;
-  transition: all var(--t);
-}
-.unit-pill:active { transform: scale(.95) }
-.unit-pill.active {
-  border-color: var(--brown-mid);
-  background: var(--brown);
-  color: #fff;
-}
-
-/* ── Input com prefixo/unidade ── */
-.input-with-prefix {
-  display: flex;
-  align-items: stretch;
-  border: 1.5px solid var(--border);
-  border-radius: var(--r-sm);
-  overflow: hidden;
-  transition: border-color var(--t);
-}
-.input-with-prefix:focus-within { border-color: var(--brown-mid); box-shadow: 0 0 0 3px rgba(122,69,32,.12) }
-
-.input-prefix {
-  display: flex;
-  align-items: center;
-  padding: 0 11px;
-  background: var(--cream-deep);
-  color: var(--muted);
-  font-size: .82rem;
-  font-weight: 700;
-  border-right: 1.5px solid var(--border);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.input-prefixed {
-  border: none !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  flex: 1;
-  min-width: 0;
-}
-.input-prefixed:focus { outline: none }
-
-.input-with-unit {
-  display: flex;
-  align-items: stretch;
-  border: 1.5px solid var(--border);
-  border-radius: var(--r-sm);
-  overflow: hidden;
-  transition: border-color var(--t);
-}
-.input-with-unit:focus-within { border-color: var(--brown-mid); box-shadow: 0 0 0 3px rgba(122,69,32,.12) }
-.input-with-unit .input {
-  border: none !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  flex: 1;
-}
-.input-with-unit .input:focus { outline: none }
-.input-unit-tag {
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  background: var(--cream-deep);
-  color: var(--muted);
-  font-size: .82rem;
-  font-weight: 700;
-  border-left: 1.5px solid var(--border);
-  flex-shrink: 0;
-}
-
-/* ── Custo card ── */
-.custo-card {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 11px 13px;
-  background: var(--gold-bg);
-  border: 1px solid #e8d5a0;
-  border-radius: var(--r-sm);
-  font-size: .83rem;
-  color: var(--brown-mid);
-  line-height: 1.4;
-  margin-top: 4px;
-}
-.custo-ico { color: var(--gold-dark); flex-shrink: 0 }
-.custo-card strong { color: var(--brown-dark); font-weight: 800 }
-
-/* ── Footer btn ── */
-.btn-icon-only { min-width: 48px; padding: 12px }
+.ing-dot   { color:var(--border2) }
 </style>

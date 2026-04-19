@@ -11,17 +11,7 @@
         <i class="fas fa-search search-icon"></i>
         <input v-model="busca" class="search-input" type="search" placeholder="Buscar por receita, categoria ou data..." />
       </div>
-      <div class="cat-filter-wrap">
-        <div class="cat-chips">
-          <button
-            v-for="f in filtros"
-            :key="f.v"
-            class="cat-chip"
-            :class="{ active: filtroAtivo === f.v }"
-            @click="setFiltro(f.v)"
-          >{{ f.l }}</button>
-        </div>
-      </div>
+      <CategoryFilter v-model="filtroAtivo" :items="filtrosNorm" />
     </div>
 
     <div v-if="s.loading" class="loading-box">
@@ -200,17 +190,15 @@ import { useStore } from '../store.js'
 import { R$, dataHoraBR, fmtQtd as fmtQ, nowLocal, normalizar } from '../utils.js'
 import BaseModal from '../components/BaseModal.vue'
 import SwipeRow from '../components/SwipeRow.vue'
-import { useConfirm } from '../composables/useConfirm.js'
+import CategoryFilter from '../components/CategoryFilter.vue'
 import { useSwipe } from '../composables/useSwipe.js'
-import { pushOverlayHistory, closeOverlayHistory, collapseOverlayHistory } from '../composables/overlayHistory.js'
+import { useModalStack } from '../composables/useModalStack.js'
 
 const s = useStore()
-const confirm = useConfirm()
 const { closeAll } = useSwipe()
+const { modal: currentModal, abrirModal, fecharModal } = useModalStack()
 
 const filtroAtivo = ref('7dias')
-const currentModal = ref(null)
-const modalHistory = []
 const historicoGrupo = ref(null)
 const historicoChecklist = reactive({})
 const historicoAberto = ref({})
@@ -222,6 +210,7 @@ const filtros = [
   { v: '30dias', l: '30 dias' },
   { v: 'total', l: 'Tudo' }
 ]
+const filtrosNorm = filtros.map(f => ({ value: f.v, label: f.l }))
 
 function isInsumoOculto(nome) {
   const chave = normalizar(nome)
@@ -497,27 +486,7 @@ function limpar(n) {
   return String(n || '').replace(/\s*[-–]\s*(base|final|intermediária|intermediaria)\s*$/i, '').replace(/\s*\(.*?\)\s*$/i, '').trim()
 }
 
-function abrirModal(next) {
-  const previous = currentModal.value
-  const token = pushOverlayHistory(() => {
-    modalHistory.pop()
-    currentModal.value = previous
-  })
-  modalHistory.push({ token, previous })
-  currentModal.value = next
-}
 
-function fecharModal() {
-  const current = modalHistory.at(-1)
-  if (!current) {
-    currentModal.value = null
-    return
-  }
-  closeOverlayHistory(current.token, () => {
-    modalHistory.pop()
-    currentModal.value = current.previous
-  })
-}
 
 async function estornar(p) {
   closeAll()
@@ -542,366 +511,114 @@ onMounted(() => setFiltro('7dias'))
 </script>
 
 <style scoped>
-/* ── Utilitários ── */
-.loading-box { display:flex; justify-content:center; padding:40px }
-.row-right { text-align:right; flex-shrink:0 }
-.mt-12 { margin-top:12px }
-.mb-12 { margin-bottom:12px }
-.mt-16 { margin-top:16px }
-.ml-4  { margin-left:4px }
-.spacer { flex:1 }
-
-.cat-filter-wrap { margin:-4px -16px 0; padding:6px 0 0; background:var(--surface) }
-.cat-chips { display:flex; gap:8px; overflow-x:auto; padding:0 16px 2px; scrollbar-width:none }
-.cat-chips::-webkit-scrollbar { display:none }
-.cat-chip { flex-shrink:0; padding:8px 16px; border-radius:20px; border:1.5px solid var(--border); background:#fff; font-size:.76rem; font-weight:700; color:var(--muted); cursor:pointer; min-height:36px }
-.cat-chip.active { background:var(--brown); color:#fff; border-color:var(--brown) }
-
-.row-cost { font-weight:700; color:var(--orange) }
-
-/* ── Produção: lista de grupos ── */
+/* ── Cards de grupos de produção (exclusivos desta tela) ── */
 .production-groups { display:flex; flex-direction:column; gap:10px; padding:8px 0 }
 
 .production-card { background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--shadow-sm); margin:0 12px }
 
-.production-card-head { 
-  width:100%; border:none; background:var(--surface); padding:14px 16px ; 
-  display:flex; align-items:center; justify-content:space-between; gap:12px; 
-  text-align:left; min-height:72px; transition:background var(--t);
-  cursor: pointer;
+.production-card-head {
+  width:100%; border:none; background:var(--surface); padding:14px 16px;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  text-align:left; min-height:72px; transition:background var(--t); cursor:pointer;
 }
 .production-card-head:active { background:var(--bg) }
 
-.production-card-main { min-width:0 }
-.production-card-title { font-size:.95rem; font-weight:800; color:var(--brown-dark); letter-spacing: -0.2px; }
-.production-card-sub { display:flex; align-items: center; gap:8px; margin-top:6px; font-size:.76rem; color:var(--muted) }
+.production-card-main  { min-width:0 }
+.production-card-title { font-size:.95rem; font-weight:800; color:var(--brown-dark); letter-spacing:-.2px }
+.production-card-sub   { display:flex; align-items:center; gap:8px; margin-top:6px; font-size:.76rem; color:var(--muted) }
 
 .prod-badge-mini {
-  padding: 2px 8px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--r-full);
-  font-weight: 700;
-  color: var(--brown-mid);
-  font-size: 0.7rem;
+  padding:2px 8px;
+  background:var(--bg); border:1px solid var(--border); border-radius:var(--r-full);
+  font-weight:700; color:var(--brown-mid); font-size:.7rem;
 }
+.prod-badge-mini.profit { background:var(--green-bg); border-color:var(--green-dim); color:var(--green) }
 
-.prod-badge-mini.profit {
-  background: var(--green-bg);
-  border-color: var(--green-dim);
-  color: var(--green);
-}
-
-.production-card-side { display:flex; align-items:center; gap:8px; flex-shrink:0 }
+.production-card-side    { display:flex; align-items:center; gap:8px; flex-shrink:0 }
 .production-card-kitchen { width:42px; height:42px; border:1.5px solid var(--border); border-radius:var(--r-md); background:var(--cream); color:var(--brown-mid); display:flex; align-items:center; justify-content:center; font-size:1rem; transition:all var(--t) }
-.production-card-kitchen:active { background:var(--gold-bg); color:var(--gold-dark); border-color:var(--gold); transform: scale(0.92); }
+.production-card-kitchen:active { background:var(--gold-bg); color:var(--gold-dark); border-color:var(--gold); transform:scale(.92) }
 
-.production-card-chevron { color:var(--border2); font-size:.85rem; transition:transform var(--t) }
+.production-card-chevron      { color:var(--border2); font-size:.85rem; transition:transform var(--t) }
 .production-card-chevron.open { transform:rotate(180deg) }
 
-.production-card-body { border-top:1px solid var(--border); background:var(--bg); padding: 0; }
+.production-card-body { border-top:1px solid var(--border); background:var(--bg); padding:0 }
 
-/* Estilização da linha para combinar com Receitas/Insumos */
-.list-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 14px;
-  background: var(--card);
-}
-
-.recipe-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.95rem;
-  flex-shrink: 0;
-}
-
-.row-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.row-name {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: var(--brown);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.row-sub {
-  font-size: 0.72rem;
-  color: var(--muted);
-}
-
-.row-val { font-size: 0.9rem; font-weight: 800; font-family: var(--mono); }
-
-/* Ajuste de alinhamento das listas internas para não duplicar margens */
+/* Swipe rows dentro dos cards: sem margens laterais */
 .production-card-body :deep(.swipe-wrap) {
-  margin-left: 0;
-  margin-right: 0;
-  border-radius: 0;
-  border-left: none;
-  border-right: none;
-  margin-bottom: 0;
-  border-bottom: 1px solid var(--border);
+  margin-left:0; margin-right:0; border-radius:0;
+  border-left:none; border-right:none; margin-bottom:0;
+  border-bottom:1px solid var(--border);
 }
 
-.pesagem-header {
-  display: flex;
-  gap: 10px;
-  padding: 14px 16px 10px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 0;
-}
-.pesagem-stat { font-size:.85rem; color:var(--muted) }
-.pesagem-stat strong { color:var(--brown); font-weight:800 }
+/* ── Linha interna do card (sobrepõe .list-row global apenas aqui) ── */
+.recipe-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:.95rem; flex-shrink:0 }
+.row-cost { font-weight:700; color:var(--orange) }
 
+/* ── Cabeçalho de pesagem ── */
+.pesagem-header { display:flex; gap:10px; padding:14px 16px 10px; background:var(--surface); border-bottom:1px solid var(--border) }
+.pesagem-stat          { font-size:.85rem; color:var(--muted) }
+.pesagem-stat strong   { color:var(--brown); font-weight:800 }
+
+/* ── Sheet card interno ── */
 .sheet-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--shadow-sm); margin:0 16px }
-.sheet-body { padding:14px}
+.sheet-body { padding:14px }
 
-.prep-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  overflow: hidden;
-  margin-bottom: 12px;
-  box-shadow: var(--shadow-sm);
-}
+/* ── Card de preparo por receita ── */
+.prep-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; margin-bottom:12px; box-shadow:var(--shadow-sm) }
 
-.plan-sub-list { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
-.plan-sub-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 0.78rem;
-  color: var(--muted);
-}
+.plan-sub-list { margin-top:6px; display:flex; flex-direction:column; gap:2px }
+.plan-sub-item { display:flex; justify-content:space-between; gap:10px; font-size:.78rem; color:var(--muted) }
 
 .prep-card-head {
-  width: 100%;
-  border: none;
-  background: var(--surface);
-  padding: 16px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  text-align: left;
-  transition: background var(--t);
+  width:100%; border:none; background:var(--surface); padding:16px 14px;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  text-align:left; transition:background var(--t);
 }
+.prep-card-head:active { background:var(--gold-bg) }
 
-.prep-card-head:active { background: var(--gold-bg) }
+.prep-card-summary { flex:1; min-width:0 }
+.prep-card-summary .group-title { font-size:.92rem; font-weight:800; display:flex; align-items:center; gap:8px; flex-wrap:wrap }
 
-.prep-card-summary { flex: 1; min-width: 0 }
-.prep-card-summary .group-title {
-  font-size: .92rem;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
+.prep-badge { background:var(--cream); color:var(--brown-mid); border:1px solid var(--border); border-radius:var(--r-full); padding:4px 10px; font-size:.72rem; font-weight:700 }
 
-.prep-badge {
-  background: var(--cream);
-  color: var(--brown-mid);
-  border: 1px solid var(--border);
-  border-radius: var(--r-full);
-  padding: 4px 10px;
-  font-size: .72rem;
-  font-weight: 700;
-}
+.prep-meta  { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; font-size:.78rem; color:var(--muted); align-items:center }
+.prep-chip  { background:var(--cream); color:var(--muted); border:1px solid var(--border); border-radius:var(--r-full); padding:5px 10px; font-size:.74rem; font-weight:700 }
 
-.prep-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 6px;
-  font-size: .78rem;
-  color: var(--muted);
-  align-items: center;
-}
+.prep-chevron      { font-size:.88rem; color:var(--muted); transition:transform var(--t) }
+.prep-chevron.open { transform:rotate(180deg) }
 
-.prep-chip {
-  background: var(--cream);
-  color: var(--muted);
-  border: 1px solid var(--border);
-  border-radius: var(--r-full);
-  padding: 5px 10px;
-  font-size: .74rem;
-  font-weight: 700;
-}
+.prep-card-body { background:var(--cream); padding:12px 14px 16px; border-top:1px solid var(--border) }
 
-.prep-chevron {
-  font-size: .88rem;
-  color: var(--muted);
-  transition: transform var(--t);
-}
+.prep-ingredient-row          { padding:12px 0; border-bottom:1px solid var(--border) }
+.prep-ingredient-row:last-child { border-bottom:none }
+.prep-ingredient-main         { display:flex; align-items:center; justify-content:space-between; gap:16px }
+.prep-ingredient-name         { font-size:.88rem; font-weight:700; color:var(--brown-dark); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 }
+.prep-ingredient-qty          { font-size:.88rem; font-weight:700; font-family:var(--mono); color:var(--brown) }
 
-.prep-chevron.open { transform: rotate(180deg) }
+.prep-sublist { margin-top:8px; padding-left:16px; display:grid; gap:6px }
+.prep-subitem { display:flex; justify-content:space-between; gap:10px; font-size:.82rem; color:var(--muted) }
+.prep-subitem strong { color:var(--brown); font-family:var(--mono) }
 
-.prep-card-body {
-  background: var(--cream);
-  padding: 12px 14px 16px;
-  border-top: 1px solid var(--border);
-}
+/* ── Resumo global de insumos ── */
+.global-summary { display:flex; flex-direction:column; gap:6px; padding:10px; background:var(--bg); border:1px solid var(--border); border-radius:var(--r-md); margin-top:4px }
+.global-item    { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#fff; border-radius:var(--r-sm); border:1px solid var(--border) }
+.global-item span   { font-size:.86rem; font-weight:700; color:var(--brown) }
+.global-item strong { font-size:.95rem; font-weight:800; font-family:var(--mono); color:var(--gold-dark) }
 
-.prep-ingredient-row {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
-}
+/* ── Checklist de pesagem ── */
+.checklist  { display:flex; flex-direction:column; gap:10px; margin-bottom:16px }
+.check-item { display:flex; align-items:center; padding:14px; background:var(--bg); border-radius:var(--r-md); cursor:pointer; border:1px solid transparent; transition:all var(--t) }
+.check-item.done { opacity:.5; background:#f8fafc; border-color:var(--border) }
 
-.prep-ingredient-row:last-child { border-bottom: none }
+.check-box { font-size:1.4rem; margin-right:15px; color:var(--gold); flex-shrink:0 }
+.done .check-box { color:var(--green) }
 
-.prep-ingredient-main {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
+.check-info { flex:1; display:flex; flex-direction:column; min-width:0 }
+.check-main { display:flex; justify-content:space-between; align-items:center; width:100% }
+.check-name { font-weight:700; font-size:.95rem; color:var(--brown); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1 }
+.done .check-name { text-decoration:line-through; color:var(--muted) }
+.check-val  { font-family:var(--mono); font-weight:800; font-size:.9rem; color:var(--brown-dark); background:#fff; padding:2px 8px; border-radius:var(--r-sm); border:1px solid var(--border); flex-shrink:0; margin-left:8px }
 
-.prep-ingredient-name {
-  font-size: .88rem;
-  font-weight: 700;
-  color: var(--brown-dark);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-}
-
-.prep-ingredient-qty {
-  font-size: .88rem;
-  font-weight: 700;
-  font-family: var(--mono);
-  color: var(--brown);
-}
-
-.prep-sublist {
-  margin-top: 8px;
-  padding-left: 16px;
-  display: grid;
-  gap: 6px;
-}
-
-.prep-subitem {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: .82rem;
-  color: var(--muted);
-}
-
-.prep-subitem strong {
-  color: var(--brown);
-  font-family: var(--mono);
-}
-
-.global-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  margin-top: 4px;
-}
-
-.global-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 12px;
-  background: #fff;
-  border-radius: var(--r-sm);
-  border: 1px solid var(--border);
-}
-
-.global-item span {
-  font-size: .86rem;
-  font-weight: 700;
-  color: var(--brown);
-}
-
-.global-item strong {
-  font-size: .95rem;
-  font-weight: 800;
-  font-family: var(--mono);
-  color: var(--gold-dark);
-}
-
-.checklist { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
-.check-item { display: flex; align-items: center; padding: 14px; background: var(--bg); border-radius: var(--r-md); cursor: pointer; border: 1px solid transparent; transition: all var(--t); }
-.check-item.done { opacity: 0.5; background: #f8fafc; border-color: var(--border); }
-
-.check-box { font-size: 1.4rem; margin-right: 15px; color: var(--gold); flex-shrink: 0; }
-.done .check-box { color: var(--green); }
-
-.check-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.check-main { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-
-.check-name { 
-  font-weight: 700; font-size: 0.95rem; color: var(--brown); 
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
-  flex: 1;
-}
-.done .check-name { text-decoration: line-through; color: var(--muted); }
-
-.check-val { 
-  font-family: var(--mono); font-weight: 800; font-size: 0.9rem; 
-  color: var(--brown-dark); background: #fff; 
-  padding: 2px 8px; border-radius: var(--r-sm); 
-  border: 1px solid var(--border);
-  flex-shrink: 0; margin-left: 8px;
-}
-
-/* ── Seção label ── */
-.section-label {
-  font-size:.72rem;
-  font-weight:800;
-  text-transform:uppercase;
-  letter-spacing:.7px;
-  color:var(--gold-dark);
-  margin-bottom:8px;
-  display:flex;
-  align-items:center;
-  gap:5px;
-}
-
-/* ── Misc ── */
-.swipe-btn {
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  width:100%;
-  height:100%;
-}
-
-.swipe-btn i { font-size:1.1rem }
-.swipe-btn:active { filter:brightness(.85) }
-.swipe-btn.estornar { background:var(--orange) }
-
-.empty { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:52px 24px; text-align:center; gap:10px }
-.empty i { font-size:2.8rem; color:var(--border2); margin-bottom:4px }
-.empty h3 { font-size:.95rem; font-weight:700; color:var(--muted) }
-
-.modal-inner {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+/* ── Modal de confirmar lote ── */
+.modal-inner { display:flex; flex-direction:column; gap:12px }
 </style>
