@@ -72,6 +72,12 @@
           <input v-model="form.nome" class="input" autofocus placeholder="Ex: Trufa Tradicional" autocomplete="off" />
         </div>
 
+        <div class="fg">
+          <label class="label">Texto da etiqueta <span class="label-opt">(opcional)</span></label>
+          <input v-model="form.nome_etiqueta" class="input" placeholder="Ex: Tradicional" autocomplete="off" />
+          <div class="hint">Se vazio, a etiqueta usa o nome da receita sem a categoria.</div>
+        </div>
+
         <!-- Tipo: toggle visual -->
         <div class="fg">
           <label class="label">Tipo</label>
@@ -174,7 +180,14 @@
         </div>
 
         <div v-for="(ing, i) in form.ingredientes" :key="ing._key" class="ing-row-slim">
-          <div class="ing-row-content" :class="{ 'is-recipe': ing.tipo === 'receita' }">
+          <div
+            class="ing-row-content"
+            :class="{
+              'is-recipe': ing.tipo === 'receita',
+              'is-invalid': ingredienteIncompleto(ing),
+              'is-duplicate': ingredienteDuplicado(ing, i)
+            }"
+          >
             <!-- Seleção e Nome -->
             <button class="ing-btn-name" @click="abrirPicker(i)">
               <span class="ing-ico-sm">{{ ing.tipo === 'receita' ? '🥣' : '📦' }}</span>
@@ -197,6 +210,11 @@
                 <i class="fas fa-times"></i>
               </button>
             </div>
+          </div>
+          <div class="ing-row-meta">
+            <span v-if="ingredienteIncompleto(ing)" class="ing-meta-chip warn">Selecione o item e informe a quantidade</span>
+            <span v-else-if="ingredienteDuplicado(ing, i)" class="ing-meta-chip warn">Ingrediente repetido na receita</span>
+            <span v-if="ing.id && Number(ing.quantidade || 0) > 0" class="ing-meta-chip cost">Custo: {{ R$(getCustoComposicao(ing)) }}</span>
           </div>
         </div>
 
@@ -311,11 +329,13 @@ import BaseModal from '../components/BaseModal.vue'
 import AppListRow from '../components/AppListRow.vue'
 import CategoryFilter from '../components/CategoryFilter.vue'
 import { useModalStack } from '../composables/useModalStack.js'
+import { useConfirm } from '../composables/useConfirm.js'
 import { useDeleteConfirm } from '../composables/useDeleteConfirm.js'
 import { useListFilter } from '../composables/useListFilter.js'
 
 const s = useStore()
 const { modal, abrirModal, fecharModal } = useModalStack()
+const confirm = useConfirm()
 const { confirmarExclusao } = useDeleteConfirm()
 
 const saving = ref(false)
@@ -341,6 +361,7 @@ const { busca, categoriaAtiva, listaFiltrada } = useListFilter(
 const getEmptyForm = () => ({
   uuid: null,
   nome: '',
+  nome_etiqueta: '',
   categoria: '',
   eh_intermediaria: 0,
   rendimento: null,
@@ -420,6 +441,10 @@ watch(() => form.nome, (v) => {
   else if (n.includes('bolo'))    form.categoria = 'Bolo'
   else if (n.includes('ovo'))     form.categoria = 'Ovo'
   else if (n.includes('recheio')) form.categoria = 'Base'
+
+  if (!form.nome_etiqueta?.trim()) {
+    form.nome_etiqueta = limparPrefixoCategoria(v)
+  }
 })
 watch(() => form.eh_intermediaria, (val) => {
   if (!form.uuid && val === 1) form.categoria = 'Base'
@@ -446,6 +471,23 @@ function getCustoComposicao(ing) {
   const prod = s.produtos.find(p => p.uuid === ing.id)
   if (!prod || !prod.fator_conversao) return 0
   return ((prod.custo_por_unidade || 0) / (prod.fator_conversao || 1)) * qtd
+}
+
+function ingredienteIncompleto(ing) {
+  return !ing?.id || Number(ing.quantidade || 0) <= 0
+}
+
+function ingredienteDuplicado(ing, idxAtual) {
+  if (!ing?.id) return false
+  return form.ingredientes.some((item, idx) =>
+    idx !== idxAtual && item?.id === ing.id && item?.tipo === ing.tipo
+  )
+}
+
+function limparPrefixoCategoria(nome) {
+  return String(nome || '')
+    .replace(/^\s*(trufa|cone|barra|brownie|bolo|ovo)\s+/i, '')
+    .trim()
 }
 
 /* ── Ingredientes ─────────────────────────────────────────────── */
@@ -507,7 +549,7 @@ function restoreScrollReceita() {
 function abrir(r) {
   Object.assign(form, getEmptyForm())
   if (r) Object.assign(form, {
-    uuid: r.uuid, nome: r.nome, categoria: r.categoria, eh_intermediaria: r.eh_intermediaria,
+    uuid: r.uuid, nome: r.nome, nome_etiqueta: r.nome_etiqueta || '', categoria: r.categoria, eh_intermediaria: r.eh_intermediaria,
     rendimento: r.rendimento, unidade_rendimento: r.unidade_rendimento, peso_unitario: r.peso_unitario,
     preco_sugerido: r.preco_sugerido, modo_preparo: r.modo_preparo,
     ingredientes: (r.ingredientes || []).map(i => ({ ...i, _key: i.id + Math.random() }))
@@ -532,6 +574,8 @@ async function salvar() {
     payload.ingredientes = payload.ingredientes.map(({ _key, ...rest }) => rest)
     await s.salvarReceita(payload)
     fecharModal()
+  } catch (error) {
+    if (!error?.validation) console.error(error)
   } finally { saving.value = false }
 }
 
@@ -643,6 +687,8 @@ async function excluirDireto(r) {
   min-height: 52px;
 }
 .ing-row-content.is-recipe { background: #f0f8ff; border-color: #bfdbfe; }
+.ing-row-content.is-invalid { border-color: #f59e0b; background: #fffaf0; }
+.ing-row-content.is-duplicate { border-color: #ef4444; }
 
 .ing-btn-name {
   flex: 1;
@@ -681,6 +727,24 @@ async function excluirDireto(r) {
 }
 .ing-input-slim:focus { outline: none; background: #fff; }
 .ing-unit-slim  { font-size: .65rem; font-weight: 800; color: var(--muted); margin-left: 2px; text-transform: lowercase; }
+
+.ing-row-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 4px 4px 0 8px;
+}
+.ing-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  font-size: .7rem;
+  font-weight: 700;
+}
+.ing-meta-chip.warn { background: #fff3cd; color: #92400e; }
+.ing-meta-chip.cost { background: var(--cream); color: var(--brown-mid); }
 
 .ing-actions-slim { display: flex; gap: 4px; }
 .btn-action-slim {

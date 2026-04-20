@@ -11,10 +11,6 @@
         <i class="fas fa-search search-icon"></i>
         <input v-model="busca" class="search-input" type="search" placeholder="Buscar por receita, categoria ou data..." />
       </div>
-      <div class="etiqueta-config">
-        <label class="hint">Iniciar na etiqueta (1-77):</label>
-        <input type="number" v-model.number="s.company.posicao_etiqueta" min="1" max="77" class="input-pos" @change="s.saveCompany(s.company)" />
-      </div>
       <CategoryFilter v-model="filtroAtivo" :items="filtrosNorm" />
     </div>
 
@@ -37,6 +33,10 @@
               </div>
             </div>
             <div class="production-card-side">
+              <button class="production-card-kitchen" type="button" title="Gerar etiquetas do lote"
+                aria-label="Gerar etiquetas do lote" @click.stop="imprimirEtiquetasGrupo(grupo)">
+                <i class="fas fa-tags"></i>
+              </button>
               <button class="production-card-kitchen" type="button" title="Abrir histórico"
                 aria-label="Abrir histórico" @click.stop="abrirCozinhaHistorica(grupo)">
                 <i class="fas fa-eye"></i>
@@ -196,7 +196,6 @@
 <script setup>
 import { ref, computed, reactive, onMounted } from 'vue'
 import PizZip from 'pizzip'
-import Docxtemplater from 'docxtemplater'
 import { saveAs } from 'file-saver'
 import { useStore } from '../store.js'
 import { R$, dataHoraBR, fmtQtd as fmtQ, nowLocal, normalizar } from '../utils.js'
@@ -236,6 +235,9 @@ const filtros = [
   { v: 'total', l: 'Tudo' }
 ]
 const filtrosNorm = filtros.map(f => ({ value: f.v, label: f.l }))
+const ETIQUETAS_POR_FOLHA = 77
+const ETIQUETA_PAGE_BREAK = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>'
+const ETIQUETA_CONTATO = 'Bete (21)99943-0023'
 
 function isInsumoOculto(nome) {
   const chave = normalizar(nome)
@@ -498,6 +500,129 @@ function limpar(n) {
   return String(n || '').replace(/\s*[-–]\s*(base|final|intermediária|intermediaria)\s*$/i, '').replace(/\s*\(.*?\)\s*$/i, '').trim()
 }
 
+function limparApenasSabor(nome, categoria = '') {
+  const nomeLimpo = limpar(nome)
+  const prefixos = [categoria, 'Trufa', 'Cone', 'Barra', 'Brownie', 'Bolo', 'Ovo']
+    .filter(Boolean)
+    .map(item => String(item).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+
+  if (!prefixos.length) return nomeLimpo
+
+  return nomeLimpo.replace(new RegExp(`^\\s*(?:${prefixos.join('|')})\\s+`, 'i'), '').trim() || nomeLimpo
+}
+
+function escapeXml(texto) {
+  return String(texto || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+function getTextoEtiqueta(p) {
+  const receita = s.receitas.find(rec => rec.uuid === p.receita_id)
+  return receita?.nome_etiqueta?.trim()
+    || limparApenasSabor(receita?.nome || p.nome_receita || p.receita_nome, receita?.categoria)
+}
+
+function montarXmlEtiquetas(templateXml, etiquetas, startPos = 0) {
+  const bodyMatch = templateXml.match(/^([\s\S]*?<w:body>)([\s\S]*?)(<w:sectPr[\s\S]*?<\/w:sectPr>)([\s\S]*)$/)
+  if (!bodyMatch) throw new Error('Estrutura do template de etiqueta nao reconhecida')
+
+  const [, prefixoBody, conteudoBase, sectPr, sufixoBody] = bodyMatch
+  const placeholdersPorFolha = (conteudoBase.match(/\{sabor\}/g) || []).length
+  if (!placeholdersPorFolha) throw new Error('Template sem marcador {sabor}')
+  if (!conteudoBase.includes('{contato}')) throw new Error('Template sem marcador {contato}')
+
+  const totalEtiquetas = etiquetas.length
+  const totalFolhas = Math.max(1, Math.ceil((startPos + totalEtiquetas) / placeholdersPorFolha))
+  const paginas = []
+
+  for (let folha = 0; folha < totalFolhas; folha++) {
+    let idxNaFolhaSabor = 0
+    let idxNaFolhaContato = 0
+    const inicioGlobal = (folha * placeholdersPorFolha) - startPos
+
+    const pagina = conteudoBase
+      .replace(/\{sabor\}/g, () => {
+        const idxEtiqueta = inicioGlobal + idxNaFolhaSabor
+        idxNaFolhaSabor += 1
+        return idxEtiqueta >= 0 && idxEtiqueta < totalEtiquetas ? escapeXml(etiquetas[idxEtiqueta]) : ''
+      })
+      .replace(/\{contato\}/g, () => {
+        const idxEtiqueta = inicioGlobal + idxNaFolhaContato
+        idxNaFolhaContato += 1
+        return idxEtiqueta >= 0 && idxEtiqueta < totalEtiquetas ? escapeXml(ETIQUETA_CONTATO) : ''
+      })
+
+    paginas.push(pagina)
+  }
+
+  return `${prefixoBody}${paginas.join(ETIQUETA_PAGE_BREAK)}${sectPr}${sufixoBody}`
+}
+
+function expandirEtiquetasProducao(itens) {
+  return itens.flatMap(item => {
+    const texto = getTextoEtiqueta(item)
+    const qtd = Number(item.quantidade_produzida || item.quantidade || 0)
+    if (!texto || qtd <= 0) return []
+    return Array.from({ length: qtd }, () => texto)
+  })
+}
+
+async function gerarArquivoEtiquetas(etiquetas, nomeArquivoBase = 'etiquetas') {
+  if (!etiquetas.length) {
+    s.notify('Nao ha etiquetas validas para gerar', 'error')
+    return
+  }
+
+  s.loading = true
+  try {
+    let startPos = Math.max(0, (Number(s.company.posicao_etiqueta || 1) || 1) - 1)
+    if (startPos > 0) {
+      s.loading = false
+      const continuar = await confirm.ask(
+        `A proxima etiqueta livre e a ${startPos + 1}. Toque em "Continuar" para reaproveitar a folha atual ou em "Nova folha" para recomecar da primeira etiqueta.`,
+        {
+          title: 'Como deseja imprimir?',
+          icon: 'fas fa-tags',
+          type: 'primary',
+          confirmLabel: 'Continuar',
+          cancelLabel: 'Nova folha'
+        }
+      )
+      startPos = continuar ? startPos : 0
+      s.loading = true
+    }
+
+    const response = await fetch(`${import.meta.env.BASE_URL}etiqueta.docx`)
+    if (!response.ok) throw new Error('Template não encontrado na pasta public')
+
+    const content = await response.arrayBuffer()
+    const zip = new PizZip(content)
+    const templateXml = zip.file('word/document.xml')?.asText()
+    if (!templateXml) throw new Error('Conteudo principal do template nao encontrado')
+
+    const xmlFinal = montarXmlEtiquetas(templateXml, etiquetas, startPos)
+    zip.file('word/document.xml', xmlFinal)
+
+    const out = zip.generate({
+      type: 'blob',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    })
+
+    saveAs(out, `${nomeArquivoBase}.docx`)
+    s.company.posicao_etiqueta = ((startPos + etiquetas.length) % ETIQUETAS_POR_FOLHA) + 1
+    s.saveCompany(s.company)
+    const totalFolhas = Math.max(1, Math.ceil((startPos + etiquetas.length) / ETIQUETAS_POR_FOLHA))
+    s.notify(`Etiqueta gerada! ${totalFolhas} folha${totalFolhas > 1 ? 's' : ''}. Proxima posicao: ${s.company.posicao_etiqueta}.`)
+  } catch (err) {
+    console.error(err)
+    s.notify('Erro ao gerar etiqueta', 'error')
+  } finally {
+    s.loading = false
+  }
+}
+
 
 
 async function estornar(p) {
@@ -514,59 +639,14 @@ async function estornar(p) {
 }
 
 async function imprimirEtiqueta(p) {
-  try {
-    s.loading = true
-    // 1. Carregar o template (deve estar em /public/etiqueta.docx)
-    const response = await fetch(`${import.meta.env.BASE_URL}etiqueta.docx`)
-    if (!response.ok) throw new Error('Template não encontrado na pasta public')
-    
-    const content = await response.arrayBuffer()
-    const zip = new PizZip(content)
-    
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-    })
+  const etiquetas = expandirEtiquetasProducao([p])
+  const saborLimpo = getTextoEtiqueta(p)
+  await gerarArquivoEtiquetas(etiquetas, `etiquetas-${normalizar(saborLimpo)}`)
+}
 
-    const saborLimpo = limparApenasSabor(p.nome_receita || p.receita_nome)
-    const qtd = Number(p.quantidade_produzida || p.quantidade || 0)
-    const dataStr = dataHoraBR(p.data_producao).split(',')[0]
-    
-    // 2. Lógica de posicionamento na grade 11x7 (77 etiquetas)
-    const startPos = (s.company.posicao_etiqueta || 1) - 1 // converte 1-77 para índice 0-76
-    const dataRender = {}
-    
-    // Inicializa todos os 77 campos (e1 até e77) como vazios
-    for (let i = 0; i < 77; i++) {
-      dataRender[`e${i+1}`] = "" 
-    }
-
-    // Preenche a partir da posição salva com o sabor e a data
-    for (let i = 0; i < qtd; i++) {
-      const currentIdx = (startPos + i) % 77
-      dataRender[`e${currentIdx + 1}`] = `${saborLimpo}\nVal: ${dataStr}`
-    }
-
-    doc.render(dataRender)
-
-    // 3. Gerar e baixar
-    const out = doc.getZip().generate({
-      type: 'blob',
-      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    })
-
-    // 4. Atualiza a posição para a próxima impressão e salva
-    s.company.posicao_etiqueta = ((startPos + qtd) % 77) + 1
-    s.saveCompany(s.company)
-
-    saveAs(out, `etiquetas-${normalizar(saborLimpo)}.docx`)
-    s.notify('Etiqueta gerada!')
-  } catch (err) {
-    console.error(err)
-    s.notify('Erro ao gerar etiqueta', 'error')
-  } finally {
-    s.loading = false
-  }
+async function imprimirEtiquetasGrupo(grupo) {
+  const etiquetas = expandirEtiquetasProducao(grupo.itens || [])
+  await gerarArquivoEtiquetas(etiquetas, `etiquetas-lote-${(grupo.data || '').slice(0, 16).replace(/[:T]/g, '-') || 'producao'}`)
 }
 
 function abrirCozinhaHistorica(grupo) {

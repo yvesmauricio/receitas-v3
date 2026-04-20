@@ -39,7 +39,12 @@ export function useDeleteConfirm() {
     )
     if (!ok) return
 
-    await onConfirm()
+    try {
+      await onConfirm()
+    } catch (error) {
+      if (!error?.validation) console.error(error)
+      return
+    }
     onDone?.()
   }
 

@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { db, configGet, configSet, exportarDados, importarDados, garantirPersistencia, migrateLegacyDbIfNeeded } from './db.js'
 import { isGoogleDriveBackupConfigured, salvarBackupNoDrive, restaurarBackupDoDrive } from './services/googleDriveBackup.js'
-import { isInsumoSemPeso } from './utils.js'
+import { isInsumoSemPeso, normalizar } from './utils.js'
 
 export const useStore = defineStore('choco', () => {
 
@@ -27,6 +27,49 @@ export const useStore = defineStore('choco', () => {
 
   const clean = (obj) => JSON.parse(JSON.stringify(obj))
   const normalizeReceitaCategoria = (categoria) => categoria === 'Nenhuma' ? '' : categoria
+
+  function failValidation(message) {
+    notify(message, 'error')
+    const error = new Error(message)
+    error.validation = true
+    throw error
+  }
+
+  function hasDuplicateName(items, nome, uuid) {
+    const nomeNorm = normalizar(nome)
+    return items.some(item => item.uuid !== uuid && normalizar(item.nome) === nomeNorm)
+  }
+
+  function contarUsoProduto(uuid) {
+    const emReceitas = receitas.value.filter(r =>
+      (r.ingredientes || []).some(ing => ing.tipo === 'produto' && ing.id === uuid)
+    ).length
+
+    const emProducoes = producoes.value.filter(p =>
+      (p.ingredientes_snapshot || []).some(ing => ing.tipo === 'produto' && ing.id === uuid)
+    ).length
+
+    return { emReceitas, emProducoes, total: emReceitas + emProducoes }
+  }
+
+  function contarUsoReceita(uuid) {
+    const emReceitas = receitas.value.filter(r =>
+      r.uuid !== uuid && (r.ingredientes || []).some(ing => ing.tipo === 'receita' && ing.id === uuid)
+    ).length
+
+    const emProducoes = producoes.value.filter(p =>
+      p.receita_id === uuid || (p.ingredientes_snapshot || []).some(ing => ing.tipo === 'receita' && ing.id === uuid)
+    ).length
+
+    return { emReceitas, emProducoes, total: emReceitas + emProducoes }
+  }
+
+  function formatarUso({ emReceitas, emProducoes }) {
+    const partes = []
+    if (emReceitas) partes.push(`${emReceitas} receita${emReceitas > 1 ? 's' : ''}`)
+    if (emProducoes) partes.push(`${emProducoes} producao${emProducoes > 1 ? 'oes' : ''}`)
+    return partes.join(' e ')
+  }
 
   // ── UI Actions ────────────────────────────
   function setTab(t) { tab.value = t }
@@ -149,6 +192,16 @@ export const useStore = defineStore('choco', () => {
   async function salvarProduto(dados) {
     const obj = clean(dados)
     obj.uuid = obj.uuid || crypto.randomUUID()
+    obj.nome = String(obj.nome || '').trim()
+
+    if (!obj.nome) failValidation('Informe o nome do ingrediente.')
+    if (hasDuplicateName(produtos.value, obj.nome, obj.uuid)) failValidation('Ja existe um ingrediente com esse nome.')
+    if (Number(obj.fator_conversao || 0) <= 0) failValidation('Informe uma quantidade valida na embalagem.')
+    if (Number(obj.custo_por_unidade || 0) < 0) failValidation('O preco de compra nao pode ser negativo.')
+    if (Number(obj.peso_unitario || 0) < 0) failValidation('O peso por unidade nao pode ser negativo.')
+    if (Number(obj.estoque_atual || 0) < 0) failValidation('O estoque atual nao pode ser negativo.')
+    if (Number(obj.estoque_minimo || 0) < 0) failValidation('O estoque minimo nao pode ser negativo.')
+
     await db.produtos.put(obj)
     const i = produtos.value.findIndex(p => p.uuid === obj.uuid)
     if (i >= 0) {
@@ -163,6 +216,8 @@ export const useStore = defineStore('choco', () => {
 
   async function excluirProduto(uuid) {
     if (!uuid) return console.error('Tentativa de excluir produto sem UUID')
+    const uso = contarUsoProduto(uuid)
+    if (uso.total) failValidation(`Nao foi possivel excluir este ingrediente porque ele ainda esta em uso em ${formatarUso(uso)}.`)
     await db.produtos.delete(uuid)
     produtos.value = produtos.value.filter(p => p.uuid !== uuid)
     notify('Ingrediente removido!')
@@ -172,7 +227,21 @@ export const useStore = defineStore('choco', () => {
   async function salvarReceita(dados) {
     const obj = clean(dados)
     obj.uuid = obj.uuid || crypto.randomUUID()
+    obj.nome = String(obj.nome || '').trim()
     obj.categoria = normalizeReceitaCategoria(obj.categoria)
+
+    if (!obj.nome) failValidation('Informe o nome da receita.')
+    if (hasDuplicateName(receitas.value, obj.nome, obj.uuid)) failValidation('Ja existe uma receita com esse nome.')
+    if (Number(obj.rendimento || 0) <= 0) failValidation('Informe um rendimento maior que zero.')
+    if (Number(obj.preco_sugerido || 0) < 0) failValidation('O preco sugerido nao pode ser negativo.')
+    if (Number(obj.peso_unitario || 0) < 0) failValidation('O peso por unidade nao pode ser negativo.')
+
+    const ingredientes = Array.isArray(obj.ingredientes) ? obj.ingredientes : []
+    if (!ingredientes.length) failValidation('Adicione pelo menos um ingrediente a receita.')
+
+    const temIngredienteInvalido = ingredientes.some(ing => !ing?.id || Number(ing.quantidade || 0) <= 0)
+    if (temIngredienteInvalido) failValidation('Revise os ingredientes: cada item precisa ter nome e quantidade maior que zero.')
+
     await db.receitas.put(obj)
     const i = receitas.value.findIndex(r => r.uuid === obj.uuid)
     if (i >= 0) {
@@ -187,6 +256,8 @@ export const useStore = defineStore('choco', () => {
 
   async function excluirReceita(uuid) {
     if (!uuid) return console.error('Tentativa de excluir receita sem UUID')
+    const uso = contarUsoReceita(uuid)
+    if (uso.total) failValidation(`Nao foi possivel excluir esta receita porque ela ainda esta em uso em ${formatarUso(uso)}.`)
     await db.receitas.delete(uuid)
     receitas.value = receitas.value.filter(r => r.uuid !== uuid)
     notify('Receita removida!')

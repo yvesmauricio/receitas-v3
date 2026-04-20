@@ -171,6 +171,29 @@
         </div>
       </div>
 
+      <div class="form-section">
+        <div class="form-section-label"><i class="fas fa-warehouse"></i> Estoque</div>
+
+        <div class="grid-2">
+          <div class="fg">
+            <label class="label">Estoque atual</label>
+            <div class="input-with-unit">
+              <input v-model.number="form.estoque_atual" class="input" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" />
+              <span class="input-unit-tag">{{ form.unidade_compra || form.unidade_base }}</span>
+            </div>
+          </div>
+          <div class="fg">
+            <label class="label">Estoque mínimo</label>
+            <div class="input-with-unit">
+              <input v-model.number="form.estoque_minimo" class="input" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" />
+              <span class="input-unit-tag">{{ form.unidade_compra || form.unidade_base }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hint">Use estes campos para registrar saldo de compra e o ponto em que vale repor o ingrediente.</div>
+      </div>
+
       <template #foot>
         <button v-if="form.uuid" class="btn btn-danger btn-icon-only" @click="excluir" title="Excluir ingrediente">
           <i class="fas fa-trash"></i>
@@ -258,6 +281,8 @@ async function salvar() {
   try {
     await s.salvarProduto({ ...form })
     fecharModal()
+  } catch (error) {
+    if (!error?.validation) console.error(error)
   } finally { saving.value = false }
 }
 
