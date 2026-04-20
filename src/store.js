@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { db, configGet, configSet, exportarDados, importarDados, garantirPersistencia, migrateLegacyDbIfNeeded } from './db.js'
 import { isGoogleDriveBackupConfigured, salvarBackupNoDrive, restaurarBackupDoDrive } from './services/googleDriveBackup.js'
+import { isInsumoSemPeso } from './utils.js'
 
 export const useStore = defineStore('choco', () => {
 
@@ -19,23 +20,13 @@ export const useStore = defineStore('choco', () => {
   // ── Config ────────────────────────────────
   const company = ref({
     nome: 'ChocoBete Produção',
-    slogan: 'Registro de Produção'
+    slogan: 'Registro de Produção',
+    posicao_etiqueta: 0
   })
   const googleDriveConfigured = computed(() => isGoogleDriveBackupConfigured())
 
   const clean = (obj) => JSON.parse(JSON.stringify(obj))
   const normalizeReceitaCategoria = (categoria) => categoria === 'Nenhuma' ? '' : categoria
-
-  // ── Computados ────────────────────────────
-  const baixoEstoque = computed(() =>
-    produtos.value.filter(p => +(p.estoque_atual || 0) <= +(p.estoque_minimo || 0) && +(p.estoque_minimo || 0) > 0)
-  )
-
-  const producaoSemana = computed(() => {
-    const seteDiasAtras = new Date()
-    seteDiasAtras.setDate(seteDiasAtras.getDate() - 7)
-    return producoes.value.filter(p => new Date(p.data_producao) >= seteDiasAtras)
-  })
 
   // ── UI Actions ────────────────────────────
   function setTab(t) { tab.value = t }
@@ -206,6 +197,7 @@ export const useStore = defineStore('choco', () => {
     const obj = clean(dados)
     obj.uuid = obj.uuid || crypto.randomUUID()
     obj.data_producao = obj.data_producao || new Date().toISOString()
+    // O campo ingredientes_snapshot deve vir preenchido da View
     await db.producoes.put(obj)
     producoes.value.unshift(obj)
     notify('Produção registrada!')
@@ -229,12 +221,20 @@ export const useStore = defineStore('choco', () => {
     configSet('company', company.value)
   }
 
-  // ── CUSTO (ao vivo — usado para pré-visualização) ────────────
+  // ── LÓGICA DE NEGÓCIO (Cálculos de Custos e Pesos) ───────────
+
+  /** Custo por unidade de medida (ex: preço por grama) */
+  function getPrecoUnitarioInsumo(prod) {
+    if (!prod || !prod.fator_conversao) return 0
+    return (prod.custo_por_unidade || 0) / prod.fator_conversao
+  }
+
   function getCustoTotal(recipe, visitados = new Set(), cache = new Map()) {
     if (!recipe || !recipe.ingredientes) return 0
-    if (cache.has(recipe.uuid)) return cache.get(recipe.uuid)
-    if (visitados.has(recipe.uuid)) return 0
-    visitados.add(recipe.uuid)
+    const uuid = recipe.uuid || 'temp'
+    if (cache.has(uuid)) return cache.get(uuid)
+    if (uuid !== 'temp' && visitados.has(uuid)) return 0
+    if (uuid !== 'temp') visitados.add(uuid)
 
     let total = 0
     for (const ing of recipe.ingredientes) {
@@ -247,13 +247,90 @@ export const useStore = defineStore('choco', () => {
         total += (getCustoTotal(sub, visitados, cache) / sub.rendimento) * qtd
       } else {
         const prod = produtos.value.find(p => p.uuid === ing.id)
-        if (!prod || !prod.fator_conversao) continue
-        total += ((prod.custo_por_unidade || 0) / prod.fator_conversao) * qtd
+        total += getPrecoUnitarioInsumo(prod) * qtd
       }
     }
 
-    cache.set(recipe.uuid, total)
+    if (uuid !== 'temp') cache.set(uuid, total)
     return total
+  }
+
+  /** 
+   * Explode uma receita em seus insumos básicos de forma recursiva.
+   * Útil para Dashboard e Cozinha.
+   */
+  function expandirIngredientes(ingredientes, fator, mapa = {}, visitados = new Set()) {
+    for (const ing of ingredientes) {
+      const qtdEscalada = (ing.quantidade || 0) * fator
+      if (qtdEscalada <= 0) continue
+
+      if (ing.tipo === 'receita') {
+        const sub = receitas.value.find(x => x.uuid === ing.id)
+        if (!sub || !sub.rendimento || visitados.has(sub.uuid)) continue
+        
+        const novosVisitados = new Set(visitados)
+        novosVisitados.add(sub.uuid)
+        
+        expandirIngredientes(sub.ingredientes || [], qtdEscalada / sub.rendimento, mapa, novosVisitados)
+      } else {
+        const prod = produtos.value.find(p => p.uuid === ing.id)
+        if (!prod) continue
+        
+        if (!mapa[prod.uuid]) {
+          mapa[prod.uuid] = { id: prod.uuid, nome: prod.nome, total: 0, unidade: prod.unidade_base }
+        }
+        mapa[prod.uuid].total += qtdEscalada
+      }
+    }
+    return mapa
+  }
+
+  /** Informações de lucratividade de uma receita */
+  function getLucroInfo(recipe) {
+    const custoTotal = getCustoTotal(recipe)
+    const rendimento = Number(recipe.rendimento || 1) || 1
+    const custoUnit = custoTotal / rendimento
+    const venda = Number(recipe.preco_sugerido || 0)
+    const valor = venda - custoUnit
+    const percentual = venda > 0 ? (valor / venda) * 100 : 0
+    return { valor, percentual, custoUnit, custoTotal }
+  }
+
+  /** Soma o peso físico de todos os ingredientes de uma receita */
+  function getPesoTotal(recipe) {
+    if (!recipe || !recipe.ingredientes) return 0
+    return recipe.ingredientes.reduce((acc, ing) => {
+      const qtd = Number(ing.quantidade || 0)
+      if (qtd <= 0) return acc
+
+      const alvo = ing.tipo === 'receita' 
+        ? receitas.value.find(x => x.uuid === ing.id) 
+        : produtos.value.find(x => x.uuid === ing.id)
+
+      // Prioridade total à escolha manual (gera_peso), senão fallback por tipo/nome
+      let soma = ing.gera_peso ?? true
+      if (alvo?.tipo === 'embalagem') soma = false
+      if (alvo && isInsumoSemPeso(alvo.nome)) soma = false
+      
+      if (!soma) return acc
+
+      if (ing.tipo === 'produto') {
+        // Se unidade e tem peso definido, soma peso. Senão assume que a qtd é o peso (g/ml)
+        if (alvo?.unidade_base === 'un' && (alvo.peso_unitario || 0) > 0) {
+          return acc + (qtd * alvo.peso_unitario)
+        }
+        return acc + qtd
+      } else {
+        const unit = String(alvo?.unidade_rendimento || '').toLowerCase()
+        if (unit === 'g') return acc + qtd
+        if (unit === 'kg') return acc + (qtd * 1000)
+        if (unit === 'un') {
+          const pw = Number(alvo?.peso_unitario || 0)
+          return acc + (pw > 0 ? (qtd * pw) : qtd)
+        }
+        return acc + qtd
+      }
+    }, 0)
   }
 
   return {
@@ -264,14 +341,12 @@ export const useStore = defineStore('choco', () => {
     // Dados
     produtos, receitas, producoes,
 
-    // Computados
-    producaoSemana, baixoEstoque,
-
     // Config
     company, googleDriveConfigured, saveCompany,
 
     // Ações
-    init, carregarProducoes, getCustoTotal,
+    init, carregarProducoes, getCustoTotal, getPrecoUnitarioInsumo, getLucroInfo, getPesoTotal,
+    expandirIngredientes,
     salvarProduto, excluirProduto,
     salvarReceita, excluirReceita,
     registrarProducao, registrarLoteProducao, estornarProducao,

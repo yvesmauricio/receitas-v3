@@ -12,18 +12,24 @@
     </header>
 
     <div class="modal-filter-bar">
-      <div class="modal-chips">
+      <div ref="chipsEl" class="modal-chips">
         <button 
           v-for="c in categorias" 
           :key="c" 
           class="chip" 
           :class="{ active: catAtiva === c }"
+          :ref="el => setChipRef(el, c)"
           @click="catAtiva = c"
         >{{ c }}</button>
       </div>
     </div>
 
-    <div class="view-body">
+    <div
+      class="view-body"
+      @touchstart.passive="onTouchStart"
+      @touchend.passive="onTouchEnd"
+      @touchcancel="resetTouch"
+    >
       <div class="quick-add-grid">
         <button
           v-for="r in receitasFiltradas"
@@ -136,7 +142,7 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, watch, nextTick } from 'vue'
 import { useStore } from '../store.js'
 import { fmtQtd as fmtQ, nowLocal, normalizar } from '../utils.js'
 import { useConfirm } from '../composables/useConfirm.js'
@@ -148,6 +154,10 @@ const lote = ref([])
 const checklist = reactive({})
 const categorias = ['Todas', 'Trufa', 'Cone', 'Barra', 'Brownie', 'Bolo', 'Ovo', 'Base']
 const catAtiva = ref('Trufa')
+const chipsEl = ref(null)
+const chipRefs = ref({})
+const touchStartX = ref(0)
+const touchStartY = ref(0)
 
 const holdInterval = ref(null)
 const blockClick = ref(false) 
@@ -202,6 +212,53 @@ const stepper = reactive({
   qtd: 0,
   inactivityTimer: null
 })
+
+function setChipRef(el, categoria) {
+  if (el) chipRefs.value[categoria] = el
+  else delete chipRefs.value[categoria]
+}
+
+function scrollCategoriaAtiva() {
+  const chipEl = chipRefs.value[catAtiva.value]
+  if (!chipEl) return
+  chipEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+}
+
+function navegarCategoria(delta) {
+  const idxAtual = categorias.indexOf(catAtiva.value)
+  if (idxAtual === -1) return
+
+  const proxIdx = Math.min(categorias.length - 1, Math.max(0, idxAtual + delta))
+  if (proxIdx === idxAtual) return
+
+  catAtiva.value = categorias[proxIdx]
+  if (navigator.vibrate) navigator.vibrate(8)
+}
+
+function onTouchStart(e) {
+  if (e.touches.length !== 1) return
+  touchStartX.value = e.touches[0].clientX
+  touchStartY.value = e.touches[0].clientY
+}
+
+function onTouchEnd(e) {
+  if (!touchStartX.value && !touchStartY.value) return
+
+  const touch = e.changedTouches?.[0]
+  if (!touch) return
+
+  const deltaX = touch.clientX - touchStartX.value
+  const deltaY = touch.clientY - touchStartY.value
+  const swipeHorizontal = Math.abs(deltaX) >= 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2
+
+  if (swipeHorizontal) navegarCategoria(deltaX < 0 ? 1 : -1)
+  resetTouch()
+}
+
+function resetTouch() {
+  touchStartX.value = 0
+  touchStartY.value = 0
+}
 
 function getPassoProducao(r) {
   const nome = normalizar(r.nome)
@@ -378,68 +435,17 @@ function atualizarQtdManual(idx, valor) {
 
 function calcularIngredientesItem(item) {
   const fator = item.qtd_produzir / (item.rendimento_base || 1)
-  return item.ingredientes.map(ing => {
-    const alvo = ing.tipo === 'receita' ? s.receitas.find(x => x.uuid === ing.id) : s.produtos.find(x => x.uuid === ing.id)
-    const total = ing.quantidade * fator
-    
-    let subIngredientes = null
-    if (ing.tipo === 'receita' && alvo?.ingredientes) {
-      subIngredientes = alvo.ingredientes.map(sub => {
-        const subAlvo = sub.tipo === 'receita' ? s.receitas.find(x => x.uuid === sub.id) : s.produtos.find(x => x.uuid === sub.id)
-        return {
-          id: sub.id,
-          nome: subAlvo?.nome || 'Insumo',
-          total: (sub.quantidade * total) / (alvo.rendimento || 1),
-          unidade: sub.tipo === 'receita' ? subAlvo?.unidade_rendimento : subAlvo?.unidade_base
-        }
-      })
-    }
-
-    return {
-      id: ing.id,
-      nome: (ing.tipo === 'receita' ? '🥣 ' : '') + (alvo?.nome || 'Item'),
-      total: total,
-      unidade: ing.tipo === 'receita' ? alvo?.unidade_rendimento : alvo?.unidade_base,
-      subIngredientes
-    }
-  })
+  const mapa = s.expandirIngredientes(item.ingredientes, fator)
+  return Object.values(mapa)
 }
 
 const ingredientesAgrupados = computed(() => {
-  const mapa = {}
+  let mapaGeral = {}
   lote.value.forEach(item => {
     const fator = item.qtd_produzir / (item.rendimento_base || 1)
-    item.ingredientes.forEach(ing => {
-      const key = `${ing.tipo}-${ing.id}`
-      if (!mapa[key]) {
-        const alvo = ing.tipo === 'receita' ? s.receitas.find(x => x.uuid === ing.id) : s.produtos.find(x => x.uuid === ing.id)
-        mapa[key] = { 
-          id: key,
-          tipo: ing.tipo,
-          nome: (ing.tipo === 'receita' ? '🥣 ' : '') + (alvo?.nome || 'Item removido'),
-          unidade: ing.tipo === 'receita' ? alvo?.unidade_rendimento : alvo?.unidade_base,
-          total: 0,
-          alvo: alvo
-        }
-      }
-      mapa[key].total += (ing.quantidade * fator)
-    })
+    mapaGeral = s.expandirIngredientes(item.ingredientes, fator, mapaGeral)
   })
-
-  return Object.values(mapa).map(group => {
-    if (group.tipo === 'receita' && group.alvo?.ingredientes) {
-      group.subIngredientes = group.alvo.ingredientes.map(sub => {
-        const subAlvo = sub.tipo === 'receita' ? s.receitas.find(x => x.uuid === sub.id) : s.produtos.find(x => x.uuid === sub.id)
-        return {
-          id: sub.id,
-          nome: subAlvo?.nome || 'Insumo',
-          total: (sub.quantidade * group.total) / (group.alvo.rendimento || 1),
-          unidade: sub.tipo === 'receita' ? subAlvo?.unidade_rendimento : subAlvo?.unidade_base
-        }
-      })
-    }
-    return group
-  }).sort((a, b) => a.nome.localeCompare(b.nome))
+  return Object.values(mapaGeral).sort((a, b) => a.nome.localeCompare(b.nome))
 })
 
 async function finalizarLote() {
@@ -462,6 +468,8 @@ async function finalizarLote() {
     unidade_rendimento: item.unidade,
     eh_intermediaria: item.eh_intermediaria,
     data_producao: data,
+    // Salva os ingredientes como estavam no momento da produção
+    ingredientes_snapshot: JSON.parse(JSON.stringify(item.ingredientes)),
     // Adicionando snapshot de custo para manter consistência com TabProducao
     custo_unitario_snapshot: (function() {
       const r = s.receitas.find(rec => rec.uuid === item.receita_id)
@@ -479,6 +487,10 @@ function limparLote() {
   lote.value = []
   Object.keys(checklist).forEach(k => delete checklist[k])
 }
+
+watch(catAtiva, () => {
+  nextTick(scrollCategoriaAtiva)
+}, { immediate: true })
 </script>
 
 <style scoped>

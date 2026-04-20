@@ -17,28 +17,24 @@
     <section class="tab-content">
       <div v-if="s.loading" class="loading-box"><div class="spinner spinner-sm"></div></div>
 
-      <template v-else-if="lista.length">
-        <SwipeRow
-          v-for="p in lista"
+      <template v-else-if="listaFiltrada.length">
+        <AppListRow
+          v-for="p in listaFiltrada"
           :key="p.uuid"
-          :row-id="p.uuid"
-          :width="120"
+          :id="p.uuid"
+          @click="abrir(p)"
         >
-          <!-- Conteúdo da linha -->
-          <div class="list-row" @click="abrir(p)">
+          <template #icon>
             <div class="ing-icon" :class="tipoBadge(p.tipo)">
               <i :class="tipoIcon(p.tipo)"></i>
             </div>
-            <div class="row-info">
-              <div class="row-name">{{ p.nome }}</div>
-              <div class="row-sub">
-                <span class="ing-preco">{{ R$(p.custo_por_unidade || 0) }}</span>
-                <span class="ing-dot">•</span>
-                <span>{{ p.unidade_compra || p.unidade_base || '-' }}</span>
-              </div>
-            </div>
-            <i class="fas fa-chevron-right row-chevron"></i>
-          </div>
+          </template>
+          <template #title>{{ p.nome }}</template>
+          <template #sub>
+            <span class="ing-preco">{{ R$(p.custo_por_unidade || 0) }}</span>
+            <span class="ing-dot">•</span>
+            <span>{{ p.unidade_compra || p.unidade_base || '-' }}</span>
+          </template>
 
           <!-- Ações de swipe -->
           <template #actions>
@@ -51,7 +47,7 @@
               <span>Excluir</span>
             </button>
           </template>
-        </SwipeRow>
+        </AppListRow>
       </template>
 
       <div v-else class="empty">
@@ -163,7 +159,7 @@
             <label class="label">Custo / {{ form.unidade_base }}</label>
             <div class="input-with-prefix">
               <span class="input-prefix">R$</span>
-              <input :value="custoPorBaseRaw" class="input input-prefixed input-ro" readonly />
+              <input :value="custoPorBaseRawSync" class="input input-prefixed input-ro" readonly />
             </div>
           </div>
         </div>
@@ -194,44 +190,28 @@
 <script setup>
 import { ref, computed, reactive } from 'vue'
 import { useStore } from '../store.js'
-import { R$, normalizar, parseMoney, maskMoney } from '../utils.js'
+import { R$, normalizar, parseMoney, maskMoney, fmtMoedaLonga } from '../utils.js'
 import BaseModal from '../components/BaseModal.vue'
-import SwipeRow from '../components/SwipeRow.vue'
+import AppListRow from '../components/AppListRow.vue'
 import CategoryFilter from '../components/CategoryFilter.vue'
 import { useModalStack } from '../composables/useModalStack.js'
 import { useDeleteConfirm } from '../composables/useDeleteConfirm.js'
+import { useListFilter } from '../composables/useListFilter.js'
 
 const s = useStore()
 const { modal, abrirModal, fecharModal } = useModalStack()
 const { confirmarExclusao } = useDeleteConfirm()
 
-const busca  = ref('')
 const saving = ref(false)
-const categoriaAtiva = ref('Ingrediente')
 
-const UNIDADES_COMPRA = ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pct', 'dz']
-const categoriasFiltro = ['Todas', 'Ingrediente', 'Embalagem']
-
-/* ── Lista ────────────────────────────────────────────────────── */
-const lista = computed(() => {
-  let r = s.produtos
-
-  if (categoriaAtiva.value !== 'Todas') {
-    const tipoMap = {
-      'Ingrediente': 'insumo',
-      'Base/Recheio': 'base',
-      'Produto final': 'final',
-      'Embalagem': 'embalagem'
-    }
-    r = r.filter(p => p.tipo === tipoMap[categoriaAtiva.value])
-  }
-
-  if (busca.value.trim()) {
-    const q = normalizar(busca.value)
-    r = r.filter(p => normalizar(p.nome + ' ' + p.tipo).includes(q))
-  }
-  return [...r].sort((a, b) => a.nome?.localeCompare(b.nome))
-})
+const categoriasFiltro = ['Todas', 'Ingrediente', 'Base/Recheio', 'Produto final', 'Embalagem']
+const tipoMap = {
+  'Ingrediente': 'insumo',
+  'Base/Recheio': 'base',
+  'Produto final': 'final',
+  'Embalagem': 'embalagem'
+}
+const { busca, categoriaAtiva, listaFiltrada } = useListFilter(computed(() => s.produtos), tipoMap, 'Ingrediente')
 
 /* ── Formulário ───────────────────────────────────────────────── */
 const form = reactive({
@@ -242,20 +222,8 @@ const form = reactive({
   peso_unitario: 0
 })
 
-const custoPorBase = computed(() => {
-  const c = +form.custo_por_unidade
-  const f = +form.fator_conversao
-  if (!c || !f) return 'R$ 0,00'
-  const valor = c / f
-  return 'R$ ' + valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 5 })
-})
-
-const custoPorBaseRaw = computed(() => {
-  const c = +form.custo_por_unidade
-  const f = +form.fator_conversao
-  if (!c || !f) return '0,00'
-  return (c / f).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 5 })
-})
+const custoPorBase = computed(() => 'R$ ' + fmtMoedaLonga(s.getPrecoUnitarioInsumo(form)))
+const custoPorBaseRawSync = computed(() => fmtMoedaLonga(s.getPrecoUnitarioInsumo(form)))
 
 /* ── Helpers visuais ──────────────────────────────────────────── */
 function tipoBadge(t) {

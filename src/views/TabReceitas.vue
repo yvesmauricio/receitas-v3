@@ -17,31 +17,26 @@
     <section class="tab-content">
       <div v-if="s.loading" class="loading-box"><div class="spinner spinner-sm"></div></div>
 
-      <template v-else-if="lista.length">
-        <SwipeRow
-          v-for="r in lista"
+      <template v-else-if="listaFiltrada.length">
+        <AppListRow
+          v-for="r in listaFiltrada"
           :key="r.uuid"
-          :row-id="r.uuid"
-          :width="120"
+          :id="r.uuid"
+          @click="abrir(r)"
         >
-          <!-- Conteúdo principal -->
-          <div class="list-row" @click="abrir(r)">
+          <template #icon>
             <div class="recipe-icon" :class="r.eh_intermediaria ? 'badge-blue' : 'badge-gold'">
               <i :class="r.eh_intermediaria ? 'fas fa-blender' : 'fas fa-cookie-bite'"></i>
             </div>
-            <div class="row-info">
-              <div class="row-name">{{ r.nome }}</div>
-              <div class="row-sub">
-                <span class="recipe-price">Venda: {{ R$(r.preco_sugerido || 0) }}</span>
-                <span class="ing-dot">•</span>
-                <span class="recipe-profit" :class="{ negative: getLucroValor(r) < 0 }">
-                  Lucro: {{ R$(getLucroValor(r)) }} ({{ getLucroPercentual(r) }})
-                </span>
-              </div>
-            </div>
-
-            <i class="fas fa-chevron-right row-chevron"></i>
-          </div>
+          </template>
+          <template #title>{{ r.nome }}</template>
+          <template #sub>
+            <span class="recipe-price">Venda: {{ R$(r.preco_sugerido || 0) }}</span>
+            <span class="ing-dot">•</span>
+            <span class="recipe-profit" :class="{ negative: s.getLucroInfo(r).valor < 0 }">
+              Lucro: {{ R$(s.getLucroInfo(r).valor) }} ({{ s.getLucroInfo(r).percentual.toFixed(0) }}%)
+            </span>
+          </template>
 
           <!-- Ações de swipe -->
           <template #actions>
@@ -54,7 +49,7 @@
               <span>Excluir</span>
             </button>
           </template>
-        </SwipeRow>
+        </AppListRow>
       </template>
 
       <div v-else class="empty">
@@ -162,8 +157,8 @@
           <div v-if="form.preco_sugerido" class="profit-divider"></div>
           <div v-if="form.preco_sugerido" class="profit-row profit-row-total">
             <span class="profit-label">Lucro por {{ form.unidade_rendimento }}</span>
-            <span class="profit-val" :class="(form.preco_sugerido - s.getCustoTotal(form) / (form.rendimento || 1)) >= 0 ? 'gain' : 'loss'">
-              {{ R$(form.preco_sugerido - s.getCustoTotal(form) / (form.rendimento || 1)) }}
+            <span class="profit-val" :class="s.getLucroInfo(form).valor >= 0 ? 'gain' : 'loss'">
+              {{ R$(s.getLucroInfo(form).valor) }}
             </span>
           </div>
         </div>
@@ -311,18 +306,18 @@
 <script setup>
 import { ref, computed, reactive, watch, nextTick } from 'vue'
 import { useStore } from '../store.js'
-import { R$, normalizar, nowLocal, maskMoney, parseMoney } from '../utils.js'
+import { R$, normalizar, nowLocal, maskMoney, parseMoney, isInsumoSemPeso } from '../utils.js'
 import BaseModal from '../components/BaseModal.vue'
-import SwipeRow from '../components/SwipeRow.vue'
+import AppListRow from '../components/AppListRow.vue'
 import CategoryFilter from '../components/CategoryFilter.vue'
 import { useModalStack } from '../composables/useModalStack.js'
 import { useDeleteConfirm } from '../composables/useDeleteConfirm.js'
+import { useListFilter } from '../composables/useListFilter.js'
 
 const s = useStore()
 const { modal, abrirModal, fecharModal } = useModalStack()
 const { confirmarExclusao } = useDeleteConfirm()
 
-const busca  = ref('')
 const saving = ref(false)
 
 const pickerSearch = ref('')
@@ -330,37 +325,53 @@ const pickerTab    = ref('todos')
 const pickerIndex  = ref(null)
 const pickerTabs   = [{ v:'todos', l:'Tudo' }, { v:'insumos', l:'📦 Ingredientes' }, { v:'bases', l:'🥣 Bases' }]
 const categoriasFiltro = ['Todas', 'Trufa', 'Cone', 'Barra', 'Brownie', 'Bolo', 'Ovo', 'Base']
-const categoriaAtiva = ref('Trufa')
-let receitaScrollTop = 0
-let restoreReceitaScroll = false
 
-function isInsumoSemPeso(nome) {
-  const chave = normalizar(nome)
-  return ['etiqueta', 'embalagem', 'rotulo', 'rótulo', 'fita', 'laco', 'laço', 'caixa'].some(term => chave.includes(term))
-}
+// Mapeamos as categorias para a propriedade 'tipo' que o composable espera
+const categoryMap = categoriasFiltro.reduce((acc, cat) => {
+  if (cat !== 'Todas') acc[cat] = cat
+  return acc
+}, {})
+
+const { busca, categoriaAtiva, listaFiltrada } = useListFilter(
+  computed(() => s.receitas.map(r => ({ ...r, tipo: r.eh_intermediaria ? 'Base' : r.categoria }))),
+  categoryMap,
+  'Trufa'
+)
 
 const getEmptyForm = () => ({
-  uuid: null, nome: '', categoria: '', eh_intermediaria: 0,
-  rendimento: null, unidade_rendimento: 'un',
-  peso_unitario: null, preco_sugerido: null, modo_preparo: '', ingredientes: []
+  uuid: null,
+  nome: '',
+  categoria: '',
+  eh_intermediaria: 0,
+  rendimento: null,
+  unidade_rendimento: 'un',
+  peso_unitario: null,
+  preco_sugerido: null,
+  modo_preparo: '',
+  ingredientes: []
 })
 
 const form = reactive(getEmptyForm())
 
-/* ── Picker ──────────────────────────────────────────────────── */
-const pickerInsumos = computed(() => {
-  const q = normalizar(pickerSearch.value)
-  return s.produtos
-    .filter(p => !q || normalizar(p.nome).includes(q))
-    .map(p => ({ id: p.uuid, nome: p.nome, tipo: 'produto', unidade: p.unidade_base || 'g', key: 'p' + p.uuid }))
-    .sort((a, b) => a.nome.localeCompare(b.nome))
-})
+let receitaScrollTop = 0
+let restoreReceitaScroll = false
 
 const pickerBases = computed(() => {
   const q = normalizar(pickerSearch.value)
   return s.receitas
     .filter(r => r.uuid !== form.uuid && (!q || normalizar(r.nome).includes(q)))
     .map(r => ({ id: r.uuid, nome: r.nome, tipo: 'receita', unidade: r.unidade_rendimento || 'g', rendimento: r.rendimento || '?', key: 'r' + r.uuid }))
+    .sort((a, b) => a.nome.localeCompare(b.nome))
+})
+
+const pickerInsumos = computed(() => {
+  const q = normalizar(pickerSearch.value)
+  return s.produtos
+    .filter(p => !q || normalizar(p.nome).includes(q))
+    .map(p => ({ 
+      id: p.uuid, nome: p.nome, tipo: 'produto', 
+      unidade: p.unidade_base || 'g', key: 'p' + p.uuid 
+    }))
     .sort((a, b) => a.nome.localeCompare(b.nome))
 })
 
@@ -382,47 +393,8 @@ const detalhesIngredientes = computed(() =>
     }))
 )
 
-/* ── Custo / Peso ─────────────────────────────────────────────── */
-const totalIngredientesG = computed(() => {
-  let total = 0
-  for (const ing of form.ingredientes) {
-    if (!ing?.id) continue
-    const qtd = Number(ing.quantidade || 0)
-    if (qtd <= 0) continue
-
-    // Seletor de peso da linha (prioridade total à escolha feita na receita)
-    let soma = ing.gera_peso
-    if (soma === undefined) {
-      // Fallback inteligente para itens antigos ou recém adicionados
-      const alvo = ing.tipo === 'receita' ? s.receitas.find(x => x.uuid === ing.id) : s.produtos.find(x => x.uuid === ing.id)
-      soma = alvo ? (alvo.tipo !== 'embalagem' && !isInsumoSemPeso(alvo.nome)) : true
-    }
-    
-    if (!soma) continue
-
-    if (ing.tipo === 'produto') {
-      const prod = s.produtos.find(p => p.uuid === ing.id)
-      // Se for unidade e tiver peso unitário, multiplica. Senão, assume que a quantidade já é o peso (g/ml)
-      if (prod && prod.unidade_base === 'un' && (prod.peso_unitario || 0) > 0) {
-        total += qtd * prod.peso_unitario
-      } else {
-        total += qtd
-      }
-    } else if (ing.tipo === 'receita') {
-      const sub  = s.receitas.find(r => r.uuid === ing.id)
-      if (!sub) continue
-      const unit = String(sub.unidade_rendimento || '').toLowerCase().trim()
-      if (unit === 'g')       total += qtd
-      else if (unit === 'kg') total += qtd * 1000
-      else if (unit === 'un') { 
-        const pw = Number(sub.peso_unitario || 0)
-        total += (pw > 0) ? (qtd * pw) : qtd 
-      }
-      else total += qtd
-    }
-  }
-  return total
-})
+const totalIngredientesG = computed(() => s.getPesoTotal(form))
+const lucro = computed(() => s.getLucroInfo(form))
 
 const pesoEsperado  = computed(() => (!form.rendimento || !form.peso_unitario) ? null : form.rendimento * form.peso_unitario)
 const diferencaPeso = computed(() => !pesoEsperado.value ? 0 : totalIngredientesG.value - pesoEsperado.value)
@@ -474,18 +446,6 @@ function getCustoComposicao(ing) {
   const prod = s.produtos.find(p => p.uuid === ing.id)
   if (!prod || !prod.fator_conversao) return 0
   return ((prod.custo_por_unidade || 0) / (prod.fator_conversao || 1)) * qtd
-}
-function getLucroValor(receita) {
-  const venda = Number(receita?.preco_sugerido || 0)
-  const rendimento = Number(receita?.rendimento || 1) || 1
-  const custoUnit = s.getCustoTotal(receita) / rendimento
-  return venda - custoUnit
-}
-function getLucroPercentual(receita) {
-  const venda = Number(receita?.preco_sugerido || 0)
-  if (venda <= 0) return '0%'
-  const lucro = getLucroValor(receita)
-  return `${((lucro / venda) * 100).toFixed(0)}%`
 }
 
 /* ── Ingredientes ─────────────────────────────────────────────── */
@@ -542,26 +502,6 @@ function restoreScrollReceita() {
     })
   })
 }
-
-/* ── Lista ────────────────────────────────────────────────────── */
-const lista = computed(() => {
-  let r = s.receitas
-
-  if (categoriaAtiva.value === 'Base') {
-    r = r.filter(x => x.eh_intermediaria || x.categoria === 'Base')
-  } else if (categoriaAtiva.value !== 'Todas') {
-    r = r.filter(x => x.categoria === categoriaAtiva.value)
-  }
-
-  if (busca.value.trim()) {
-    const q = normalizar(busca.value)
-    r = r.filter(x => {
-      const tipo = x.eh_intermediaria ? 'base intermediaria recheio' : 'final produto'
-      return normalizar(`${x.nome} ${x.categoria || ''} ${tipo}`).includes(q)
-    })
-  }
-  return [...r].sort((a, b) => a.nome?.localeCompare(b.nome))
-})
 
 /* ── Modal ────────────────────────────────────────────────────── */
 function abrir(r) {

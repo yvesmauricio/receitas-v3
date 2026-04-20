@@ -1,17 +1,15 @@
+const moneyFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
 export const R$ = (v, compact = false) => {
   const n = Number(v || 0)
-  if (compact && Math.abs(n) >= 1000) return 'R$ ' + (n / 1000).toFixed(1).replace('.', ',') + 'k'
-  return  n.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  if (compact && Math.abs(n) >= 1000) {
+    return 'R$ ' + (n / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + 'k'
+  }
+  return moneyFmt.format(n)
 }
 
 export const maskMoney = (v) => {
-  let val = typeof v === 'number' 
-    ? v.toFixed(2).replace(/\D/g, "") 
-    : String(v || "").replace(/\D/g, "")
-
-  if (!val) return "0,00"
-  val = (Number(val) / 100).toFixed(2).replace(".", ",")
-  return val.replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+  return R$(typeof v === 'number' ? v : parseMoney(v))
 }
 
 export const parseMoney = (v) => {
@@ -21,14 +19,28 @@ export const parseMoney = (v) => {
 
 export const dataHoraBR = (iso) => {
   if (!iso) return ''
-  const d = new Date(iso)
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) +
-    ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+  })
 }
 
 export const fmtQtd = (v, u = '') => {
   const n = Number(v || 0)
-  return (n % 1 === 0 ? n : n.toFixed(2)) + (u ? ' ' + u : '')
+  const fmt = n.toLocaleString('pt-BR', {
+    minimumFractionDigits: n % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2
+  })
+  return fmt + (u ? ' ' + u : '')
+}
+
+export const isInsumoSemPeso = (nome) => {
+  const chave = normalizar(nome)
+  return ['etiqueta', 'embalagem', 'rotulo', 'rótulo', 'fita', 'laco', 'laço', 'caixa', 'sacola'].some(term => chave.includes(term))
+}
+
+export const fmtMoedaLonga = (v) => {
+  const n = Number(v || 0)
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 5 })
 }
 
 export const normalizar = (s) =>

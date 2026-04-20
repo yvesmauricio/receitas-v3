@@ -46,15 +46,3 @@ export function closeOverlayHistory(token, fallback) {
   if (idx >= 0) overlayStack.splice(idx, 1)
   fallback?.()
 }
-
-export function collapseOverlayHistory(count, fallback) {
-  if (!count) {
-    fallback?.()
-    return
-  }
-
-  overlayStack.splice(-count, count)
-  suppressNextPop = true
-  fallback?.()
-  window.history.go(-count)
-}

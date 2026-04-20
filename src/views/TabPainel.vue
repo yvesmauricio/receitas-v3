@@ -74,13 +74,25 @@
         <div class="sheet-card mb-16">
           <div class="sheet-body">
             <div v-if="!stats.consumoInsumos.length" class="empty-mini">Sem dados no período</div>
-            <p v-else class="hint mb-10">Estimativa baseada nas receitas produzidas:</p>
-            <div class="insumo-list">
-              <div v-for="ins in stats.consumoInsumos" :key="ins.nome" class="insumo-row">
-                <span class="usage-name">{{ ins.nome }}</span>
-                <span class="usage-val">{{ fmtQ(ins.total, ins.unidade) }}</span>
+            <template v-else>
+              <div class="flex-hdr mb-10">
+                <p class="hint">Total estimado para reposição:</p>
+                <button class="btn-sec-sm" @click="compartilharLista">
+                  <i class="fas fa-share-nodes"></i> Compartilhar
+                </button>
               </div>
-            </div>
+              <div class="insumo-list">
+                <div v-for="ins in stats.consumoInsumos" :key="ins.nome" class="chart-row">
+                  <div class="chart-info">
+                    <span class="usage-name">{{ ins.nome }}</span>
+                    <strong class="usage-val">{{ fmtQ(ins.total, ins.unidade) }}</strong>
+                  </div>
+                  <div class="chart-bar-bg">
+                    <div class="chart-bar-fill" :style="{ width: '100%', opacity: 0.15, backgroundColor: 'var(--gold)' }"></div>
+                  </div>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
       </template>
@@ -111,28 +123,25 @@ const atualizarDados = () => {
 watch(periodoAtivo, atualizarDados)
 onMounted(atualizarDados)
 
-// Explode recursivamente todos os insumos de uma receita (e suas sub-receitas)
-function explodirInsumos(receita, fatorAcumulado, mapa, visitados = new Set()) {
-  if (!receita || visitados.has(receita.uuid)) return
-  visitados.add(receita.uuid)
+function compartilharLista() {
+  if (!stats.value.consumoInsumos.length) return
 
-  const ingredientes = receita.ingredientes || []
-  for (const ing of ingredientes) {
-    const qtdEscalada = (ing.quantidade || 0) * fatorAcumulado
+  const labelPeriodo = periodos.find(p => p.v === periodoAtivo.value)?.l || 'Período'
+  let texto = `🛒 *Lista de Compras - ${s.company.nome}*\n`
+  texto += `Estimativa baseada na produção: *${labelPeriodo}*\n\n`
 
-    if (ing.tipo === 'produto') {
-      const prod = s.produtos.find(px => px.uuid === ing.id)
-      if (!prod) continue
-      if (!mapa[prod.uuid]) mapa[prod.uuid] = { nome: prod.nome, total: 0, unidade: prod.unidade_base }
-      mapa[prod.uuid].total += qtdEscalada
+  stats.value.consumoInsumos.forEach(ins => {
+    texto += `• ${ins.nome}: *${fmtQ(ins.total, ins.unidade)}*\n`
+  })
 
-    } else if (ing.tipo === 'receita') {
-      // Expandir a sub-receita recursivamente
-      const sub = s.receitas.find(rx => rx.uuid === ing.id)
-      if (!sub || !sub.rendimento) continue
-      const fatorSub = qtdEscalada / sub.rendimento
-      explodirInsumos(sub, fatorSub, mapa, new Set(visitados))
-    }
+  texto += `\n_Gerado por ChocoStoq_`
+
+  if (navigator.share) {
+    navigator.share({ title: 'Lista de Compras', text: texto }).catch(() => {})
+  } else {
+    // Fallback para cópia ou link direto se o Share API não estiver disponível
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`
+    window.open(url, '_blank')
   }
 }
 
@@ -175,7 +184,7 @@ const stats = computed(() => {
     recMap[r.uuid].vendaTotal += vendaTotalItem
 
     const fatorBase = qtd / (r.rendimento || 1)
-    explodirInsumos(r, fatorBase, insumoMap)
+    s.expandirIngredientes(r.ingredientes || [], fatorBase, insumoMap)
   })
 
   const porCategoria = Object.entries(catMap).map(([nome, qtd]) => ({
@@ -225,6 +234,8 @@ const stats = computed(() => {
 }
 .stat-val { font-size: 1.1rem; font-weight: 800; color: var(--brown); font-family: var(--mono); }
 .stat-val small { font-size: .8rem; font-weight: 400; }
+
+.flex-hdr { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 
 /* ── Cards de seção (exclusivos do painel) ── */
 .sheet-card {

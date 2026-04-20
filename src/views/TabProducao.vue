@@ -11,6 +11,10 @@
         <i class="fas fa-search search-icon"></i>
         <input v-model="busca" class="search-input" type="search" placeholder="Buscar por receita, categoria ou data..." />
       </div>
+      <div class="etiqueta-config">
+        <label class="hint">Iniciar na etiqueta (1-77):</label>
+        <input type="number" v-model.number="s.company.posicao_etiqueta" min="1" max="77" class="input-pos" @change="s.saveCompany(s.company)" />
+      </div>
       <CategoryFilter v-model="filtroAtivo" :items="filtrosNorm" />
     </div>
 
@@ -42,32 +46,37 @@
           </button>
 
           <div v-if="isGrupoAberto(grupo.id)" class="production-card-body">
-            <SwipeRow v-for="p in grupo.itens" :key="p.uuid || p.id" :row-id="p.uuid || p.id" :width="90">
-              <div class="list-row">
+            <AppListRow
+              v-for="p in grupo.itens"
+              :key="p.uuid || p.id"
+              :id="p.uuid || p.id"
+              :actions-width="160"
+              :chevron="false"
+            >
+              <template #icon>
                 <div class="recipe-icon" :class="p.eh_intermediaria ? 'badge-blue' : 'badge-gold'">
                   <i :class="p.eh_intermediaria ? 'fas fa-blender' : 'fas fa-cookie-bite'"></i>
                 </div>
-                <div class="row-info">
-                  <div class="row-name">
-                    {{ limpar(p.nome_receita || p.receita_nome) }}
-                  </div>
-                  <div class="row-sub">
-                    <span class="row-cost">Custo: {{ R$(getCustoProducao(p)) }}</span>
-                  </div>
-                </div>
-                <div class="row-right">
-                  <div class="row-val c-brown">{{ p.quantidade_produzida || p.quantidade }} {{ p.unidade_rendimento ||
-                    'un' }}</div>
-                </div>
-              </div>
+              </template>
+              <template #title>{{ limpar(p.nome_receita || p.receita_nome) }}</template>
+              <template #sub>
+                <span class="row-cost">Custo: {{ R$(getCustoProducao(p)) }}</span>
+              </template>
+              <template #right>
+                <div class="row-val c-brown">{{ p.quantidade_produzida || p.quantidade }} {{ p.unidade_rendimento || 'un' }}</div>
+              </template>
 
               <template #actions>
+                <button class="swipe-btn print" @click="imprimirEtiqueta(p)">
+                  <i class="fas fa-tag"></i>
+                  <span>Etiqueta</span>
+                </button>
                 <button class="swipe-btn estornar" @click="estornar(p)">
                   <i class="fas fa-rotate-left"></i>
                   <span>Cancelar</span>
                 </button>
               </template>
-            </SwipeRow>
+            </AppListRow>
           </div>
         </div>
       </div>
@@ -186,24 +195,40 @@
 
 <script setup>
 import { ref, computed, reactive, onMounted } from 'vue'
+import PizZip from 'pizzip'
+import Docxtemplater from 'docxtemplater'
+import { saveAs } from 'file-saver'
 import { useStore } from '../store.js'
 import { R$, dataHoraBR, fmtQtd as fmtQ, nowLocal, normalizar } from '../utils.js'
 import BaseModal from '../components/BaseModal.vue'
-import SwipeRow from '../components/SwipeRow.vue'
+import AppListRow from '../components/AppListRow.vue'
 import CategoryFilter from '../components/CategoryFilter.vue'
 import { useSwipe } from '../composables/useSwipe.js'
 import { useModalStack } from '../composables/useModalStack.js'
+import { useConfirm } from '../composables/useConfirm.js'
+import { useListFilter } from '../composables/useListFilter.js'
 
 const s = useStore()
 const { closeAll } = useSwipe()
 const { modal: currentModal, abrirModal, fecharModal } = useModalStack()
+const confirm = useConfirm()
 
 const filtroAtivo = ref('7dias')
 const historicoGrupo = ref(null)
 const historicoChecklist = reactive({})
 const historicoAberto = ref({})
 const gruposAbertos = ref({})
-const busca = ref('')
+
+// Para produções, usamos o composable para busca e ordenação pré-agrupamento
+const { busca, listaFiltrada } = useListFilter(
+  computed(() => s.producoes.map(p => ({
+    ...p,
+    nome: p.nome_receita || p.receita_nome // Mapeia para o campo 'nome' que o composable busca
+  }))),
+  {},
+  'Todas'
+)
+
 const filtros = [
   { v: 'hoje', l: 'Hoje' },
   { v: '7dias', l: '7 dias' },
@@ -272,30 +297,17 @@ function isHistoricoItemAberto(uid) {
 }
 
 // ── Computados ────────────────────────────────────────────────
-const lista = computed(() => {
+const listaPeriodo = computed(() => {
   const agora = new Date()
-  const q = normalizar(busca.value)
-
-  return [...s.producoes]
+  return listaFiltrada.value
     .filter(p => {
-      let matchTime = true
       if (filtroAtivo.value === 'hoje') {
-        matchTime = (p.data_producao || '').slice(0, 10) === agora.toISOString().slice(0, 10)
-      } else if (filtroAtivo.value !== 'total') {
-        const dias = filtroAtivo.value === '7dias' ? 7 : 30
-        const limite = new Date(agora); limite.setDate(agora.getDate() - dias)
-        matchTime = new Date(p.data_producao) >= limite
+        return (p.data_producao || '').slice(0, 10) === agora.toISOString().slice(0, 10)
       }
-      
-      if (!matchTime) return false
-      if (!q) return true
-
-      const nome = normalizar(p.nome_receita || p.receita_nome)
-      const dataStr = normalizar(dataHoraBR(p.data_producao))
-      const rec = s.receitas.find(r => r.uuid === p.receita_id)
-      const cat = normalizar(rec?.categoria || '')
-
-      return nome.includes(q) || dataStr.includes(q) || cat.includes(q)
+      if (filtroAtivo.value === 'total') return true
+      const dias = filtroAtivo.value === '7dias' ? 7 : 30
+      const limite = new Date(); limite.setDate(agora.getDate() - dias)
+      return new Date(p.data_producao) >= limite
     })
     .sort((a, b) => (b.data_producao || '').localeCompare(a.data_producao || ''))
 })
@@ -303,7 +315,7 @@ const lista = computed(() => {
 const gruposProducao = computed(() => {
   const mapa = new Map()
 
-  for (const item of lista.value) {
+  for (const item of listaPeriodo.value) {
     const key = item.data_producao || 'sem-data'
     if (!mapa.has(key)) {
       mapa.set(key, {
@@ -499,6 +511,62 @@ async function estornar(p) {
   const id = p.uuid || p.id
   if (!id) return s.notify('Erro: identificador não encontrado', 'error')
   await s.estornarProducao(id)
+}
+
+async function imprimirEtiqueta(p) {
+  try {
+    s.loading = true
+    // 1. Carregar o template (deve estar em /public/etiqueta.docx)
+    const response = await fetch(`${import.meta.env.BASE_URL}etiqueta.docx`)
+    if (!response.ok) throw new Error('Template não encontrado na pasta public')
+    
+    const content = await response.arrayBuffer()
+    const zip = new PizZip(content)
+    
+    const doc = new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
+    })
+
+    const saborLimpo = limparApenasSabor(p.nome_receita || p.receita_nome)
+    const qtd = Number(p.quantidade_produzida || p.quantidade || 0)
+    const dataStr = dataHoraBR(p.data_producao).split(',')[0]
+    
+    // 2. Lógica de posicionamento na grade 11x7 (77 etiquetas)
+    const startPos = (s.company.posicao_etiqueta || 1) - 1 // converte 1-77 para índice 0-76
+    const dataRender = {}
+    
+    // Inicializa todos os 77 campos (e1 até e77) como vazios
+    for (let i = 0; i < 77; i++) {
+      dataRender[`e${i+1}`] = "" 
+    }
+
+    // Preenche a partir da posição salva com o sabor e a data
+    for (let i = 0; i < qtd; i++) {
+      const currentIdx = (startPos + i) % 77
+      dataRender[`e${currentIdx + 1}`] = `${saborLimpo}\nVal: ${dataStr}`
+    }
+
+    doc.render(dataRender)
+
+    // 3. Gerar e baixar
+    const out = doc.getZip().generate({
+      type: 'blob',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    })
+
+    // 4. Atualiza a posição para a próxima impressão e salva
+    s.company.posicao_etiqueta = ((startPos + qtd) % 77) + 1
+    s.saveCompany(s.company)
+
+    saveAs(out, `etiquetas-${normalizar(saborLimpo)}.docx`)
+    s.notify('Etiqueta gerada!')
+  } catch (err) {
+    console.error(err)
+    s.notify('Erro ao gerar etiqueta', 'error')
+  } finally {
+    s.loading = false
+  }
 }
 
 function abrirCozinhaHistorica(grupo) {
