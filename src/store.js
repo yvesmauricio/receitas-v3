@@ -16,6 +16,7 @@ export const useStore = defineStore('choco', () => {
   const produtos  = ref([])
   const receitas  = ref([])
   const producoes = ref([])
+  const financeiro = ref([])
 
   // ── Config ────────────────────────────────
   const company = ref({
@@ -27,6 +28,102 @@ export const useStore = defineStore('choco', () => {
 
   const clean = (obj) => JSON.parse(JSON.stringify(obj))
   const normalizeReceitaCategoria = (categoria) => categoria === 'Nenhuma' ? '' : categoria
+  const normalizarTextoFinanceiro = (texto) =>
+    String(texto || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim()
+
+  function getMesRef(dataIso) {
+    const [ano, mes] = String(dataIso || '').split('-')
+    return ano && mes ? `${mes}/${ano}` : ''
+  }
+
+  function normalizarTipoFinanceiro(tipo) {
+    return normalizarTextoFinanceiro(tipo)
+  }
+
+  function classificarLancamentoFinanceiro({ tipo, descricao, valor }) {
+    const tipoNorm = normalizarTipoFinanceiro(tipo)
+    const descNorm = normalizarTextoFinanceiro(descricao)
+    const valorNum = Number(valor || 0)
+
+    if (tipoNorm.includes('pix recebido') || tipoNorm.includes('qr code pix recebido')) {
+      return { categoria: 'Receita', natureza: 'entrada' }
+    }
+
+    if (tipoNorm.includes('rendimento')) {
+      return { categoria: 'Rendimento financeiro', natureza: valorNum >= 0 ? 'entrada' : 'saida' }
+    }
+
+    if (descNorm.includes('condominio') || descNorm.includes('edificio') || descNorm.includes('edificio santo amaro')) {
+      return { categoria: 'Moradia', natureza: 'pessoal' }
+    }
+
+    if (tipoNorm.includes('cartao de debito')) {
+      if (descNorm.includes('supermerc') || descNorm.includes('merc') || descNorm.includes('acougue') || descNorm.includes('padaria') || descNorm.includes('biscoito') || descNorm.includes('casas pedro')) {
+        return { categoria: 'Mercado', natureza: 'operacional' }
+      }
+      return { categoria: 'Cartao e compras', natureza: 'operacional' }
+    }
+
+    if (tipoNorm.includes('pix enviado') || tipoNorm.includes('qr code pix enviado')) {
+      if (descNorm.includes('mais.mobi') || descNorm.includes('drogarias') || descNorm.includes('pacheco') || descNorm.includes('farmaceutic')) {
+        return { categoria: 'Taxas e servicos', natureza: 'operacional' }
+      }
+      if (descNorm.includes('municipio') || descNorm.includes('rio de janeiro')) {
+        return { categoria: 'Impostos e taxas', natureza: 'operacional' }
+      }
+      if (descNorm.includes('condominio') || descNorm.includes('edificio')) {
+        return { categoria: 'Moradia', natureza: 'pessoal' }
+      }
+      return { categoria: 'Transferencia', natureza: 'pessoal' }
+    }
+
+    return {
+      categoria: valorNum >= 0 ? 'Outras entradas' : 'Outras saidas',
+      natureza: valorNum >= 0 ? 'entrada' : 'operacional'
+    }
+  }
+
+  function getHashDuplicidadeFinanceiro({ data, valor, tipo, descricao }) {
+    const base = [
+      data,
+      Number(valor || 0).toFixed(2),
+      normalizarTextoFinanceiro(tipo),
+      normalizarTextoFinanceiro(descricao)
+    ].join('|')
+    let hash = 2166136261
+    for (let i = 0; i < base.length; i++) {
+      hash ^= base.charCodeAt(i)
+      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)
+    }
+    return `fin-${(hash >>> 0).toString(36)}-${base}`
+  }
+
+  function normalizarLancamentoFinanceiro(dados = {}) {
+    const data = String(dados.data || '').slice(0, 10)
+    const valor = Number(dados.valor || 0)
+    const tipoLegado = !dados.tipo && !dados.categoria && valor > 0 ? 'Pix recebido' : ''
+    const tipo = String(dados.tipo || tipoLegado).trim()
+    const descricao = String(dados.descricao || '').trim()
+    const classificacao = classificarLancamentoFinanceiro({ tipo, descricao, valor })
+    const mes_ref = dados.mes_ref || getMesRef(data)
+    const hash_duplicidade = dados.hash_duplicidade || getHashDuplicidadeFinanceiro({ data, valor, tipo, descricao })
+
+    return {
+      data,
+      valor,
+      tipo,
+      descricao,
+      categoria: dados.categoria || classificacao.categoria,
+      natureza: dados.natureza || classificacao.natureza,
+      mes_ref,
+      hash_duplicidade
+    }
+  }
 
   function failValidation(message) {
     notify(message, 'error')
@@ -90,10 +187,11 @@ export const useStore = defineStore('choco', () => {
     await garantirPersistencia()
     loading.value = true
     try {
-      const [p, r, pr, cfg] = await Promise.all([
+      const [p, r, pr, fin, cfg] = await Promise.all([
         db.produtos.toArray(),
         db.receitas.toArray(),
         db.producoes.toArray(),
+        db.financeiro.orderBy('data').reverse().toArray(),
         configGet('company')
       ])
       produtos.value  = p
@@ -102,6 +200,7 @@ export const useStore = defineStore('choco', () => {
         categoria: normalizeReceitaCategoria(receita.categoria)
       }))
       producoes.value = pr
+      financeiro.value = fin
       if (cfg) company.value = cfg
     } finally {
       loading.value = false
@@ -186,6 +285,85 @@ export const useStore = defineStore('choco', () => {
         .aboveOrEqual(iso)
         .toArray()
     }
+  }
+
+  async function carregarFinanceiro() {
+    financeiro.value = await db.financeiro.orderBy('data').reverse().toArray()
+  }
+
+  async function importarLancamentosFinanceiros(lancamentos = []) {
+    const preparadosBase = lancamentos
+      .map(normalizarLancamentoFinanceiro)
+      .filter(item => item.data && item.descricao && Number.isFinite(item.valor) && item.tipo)
+
+    const preparados = []
+    const hashesNoArquivo = new Set()
+
+    for (const item of preparadosBase) {
+      if (hashesNoArquivo.has(item.hash_duplicidade)) continue
+      hashesNoArquivo.add(item.hash_duplicidade)
+      preparados.push(item)
+    }
+
+    if (!preparados.length) {
+      return {
+        recebidos: lancamentos.length,
+        validos: 0,
+        importados: 0,
+        duplicados: 0,
+        totalImportado: 0
+      }
+    }
+
+    const hashes = [...new Set(preparados.map(item => item.hash_duplicidade))]
+    const existentes = hashes.length
+      ? await db.financeiro.where('hash_duplicidade').anyOf(hashes).toArray()
+      : []
+    const hashesExistentes = new Set(existentes.map(item => item.hash_duplicidade))
+    const novos = preparados.filter(item => !hashesExistentes.has(item.hash_duplicidade))
+
+    if (novos.length) {
+      await db.financeiro.bulkAdd(novos)
+      await carregarFinanceiro()
+    }
+
+    return {
+      recebidos: lancamentos.length,
+      validos: preparados.length,
+      importados: novos.length,
+      duplicados: preparados.length - novos.length,
+      totalImportado: novos.reduce((acc, item) => acc + Number(item.valor || 0), 0),
+      receitasImportadas: novos
+        .filter(item => item.natureza === 'entrada')
+        .reduce((acc, item) => acc + Number(item.valor || 0), 0),
+      saidasImportadas: novos
+        .filter(item => item.valor < 0)
+        .reduce((acc, item) => acc + Math.abs(Number(item.valor || 0)), 0)
+    }
+  }
+
+  async function atualizarLancamentoFinanceiro(id, dadosAtualizacao) {
+    const lancamento = await db.financeiro.get(id)
+    if (!lancamento) {
+      notify('Lançamento não encontrado.', 'error')
+      return
+    }
+
+    const atualizado = {
+      ...lancamento,
+      ...dadosAtualizacao,
+      editado_manualmente: true
+    }
+
+    await db.financeiro.put(atualizado)
+    await carregarFinanceiro()
+    notify('Categoria atualizada!')
+  }
+
+  async function deletarLancamentoFinanceiro(id) {
+    await db.financeiro.delete(id)
+    await carregarFinanceiro()
+    notify('Lançamento removido!')
   }
 
   // ── CRUD: INGREDIENTES (produtos) ────────
@@ -404,20 +582,98 @@ export const useStore = defineStore('choco', () => {
     }, 0)
   }
 
+  const resumoFinanceiroPorMes = computed(() => {
+    const meses = new Map()
+
+    financeiro.value.forEach(item => {
+      const mesRef = item.mes_ref || getMesRef(item.data)
+      if (!mesRef) return
+
+      if (!meses.has(mesRef)) {
+        meses.set(mesRef, {
+          mes_ref: mesRef,
+          total: 0,
+          quantidade: 0,
+          entradas: 0,
+          receitas_mei: 0,
+          saidas_operacionais: 0,
+          saidas_pessoais: 0,
+          rendimento_financeiro: 0
+        })
+      }
+
+      const atual = meses.get(mesRef)
+      const valor = Number(item.valor || 0)
+      atual.total += valor
+      atual.quantidade += 1
+
+      if (item.natureza === 'entrada') atual.entradas += valor
+      if (item.categoria === 'Receita') atual.receitas_mei += valor
+      if (item.categoria === 'Rendimento financeiro') atual.rendimento_financeiro += valor
+      if (item.natureza === 'operacional' && valor < 0) atual.saidas_operacionais += Math.abs(valor)
+      if (item.natureza === 'pessoal' && valor < 0) atual.saidas_pessoais += Math.abs(valor)
+    })
+
+    return [...meses.values()].sort((a, b) => {
+      const [mesA, anoA] = a.mes_ref.split('/')
+      const [mesB, anoB] = b.mes_ref.split('/')
+      return `${anoB}${mesB}`.localeCompare(`${anoA}${mesA}`)
+    })
+  })
+
+  const totalRecebidoAnoAtual = computed(() => {
+    const anoAtual = String(new Date().getFullYear())
+    return resumoFinanceiroPorMes.value
+      .filter(item => item.mes_ref.endsWith(`/${anoAtual}`))
+      .reduce((acc, item) => acc + Number(item.receitas_mei || 0), 0)
+  })
+
+  const resumoFinanceiroCategorias = computed(() => {
+    const categorias = new Map()
+
+    financeiro.value.forEach(item => {
+      const chave = item.categoria || 'Sem categoria'
+      if (!categorias.has(chave)) {
+        categorias.set(chave, {
+          categoria: chave,
+          total: 0,
+          quantidade: 0,
+          natureza: item.natureza || 'operacional'
+        })
+      }
+
+      const atual = categorias.get(chave)
+      atual.total += Math.abs(Number(item.valor || 0))
+      atual.quantidade += 1
+    })
+
+    return [...categorias.values()].sort((a, b) => b.total - a.total)
+  })
+
+  const relatorioMensalMei = computed(() => {
+    return resumoFinanceiroPorMes.value.map(item => ({
+      ...item,
+      saldo_operacional: Number(item.receitas_mei || 0) - Number(item.saidas_operacionais || 0)
+    }))
+  })
+
   return {
     // UI
     tab, loading, toast, modal,
     setTab, notify, openModal, closeModal,
 
     // Dados
-    produtos, receitas, producoes,
+    produtos, receitas, producoes, financeiro,
 
     // Config
     company, googleDriveConfigured, saveCompany,
 
     // Ações
-    init, carregarProducoes, getCustoTotal, getPrecoUnitarioInsumo, getLucroInfo, getPesoTotal,
+    init, carregarProducoes, carregarFinanceiro, importarLancamentosFinanceiros,
+    atualizarLancamentoFinanceiro, deletarLancamentoFinanceiro,
+    getCustoTotal, getPrecoUnitarioInsumo, getLucroInfo, getPesoTotal,
     expandirIngredientes,
+    resumoFinanceiroPorMes, resumoFinanceiroCategorias, relatorioMensalMei, totalRecebidoAnoAtual,
     salvarProduto, excluirProduto,
     salvarReceita, excluirReceita,
     registrarProducao, registrarLoteProducao, estornarProducao,

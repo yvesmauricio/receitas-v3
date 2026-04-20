@@ -13,6 +13,22 @@ db.version(1).stores({
   config:    'chave'
 })
 
+db.version(2).stores({
+  produtos:   'uuid, nome',
+  receitas:   'uuid, nome',
+  producoes:  'uuid, data_producao',
+  financeiro: '++id, data, valor, descricao, mes_ref, &hash_duplicidade',
+  config:     'chave'
+})
+
+db.version(3).stores({
+  produtos:   'uuid, nome',
+  receitas:   'uuid, nome',
+  producoes:  'uuid, data_producao',
+  financeiro: '++id, data, valor, tipo, categoria, natureza, descricao, mes_ref, &hash_duplicidade',
+  config:     'chave'
+})
+
 function randomId() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID()
   return `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -118,6 +134,7 @@ export async function migrateLegacyDbIfNeeded() {
     db.produtos.count(),
     db.receitas.count(),
     db.producoes.count(),
+    db.financeiro.count(),
     db.config.count()
   ])
 
@@ -164,7 +181,7 @@ export async function configSet(chave, valor) {
 
 // ─── Rotina de Backup Forte ─────────────────────────────────────
 export async function exportarDados() {
-  const tabelas = ['produtos', 'receitas', 'producoes', 'config']
+  const tabelas = ['produtos', 'receitas', 'producoes', 'financeiro', 'config']
   const backup = {}
   for (const t of tabelas) {
     backup[t] = await db[t].toArray()
@@ -174,10 +191,10 @@ export async function exportarDados() {
 
 export async function importarDados(backup) {
   return db.transaction('rw', db.tables, async () => {
-    for (const [tabela, rows] of Object.entries(backup)) {
-      if (!db[tabela]) continue
+    for (const tabela of db.tables.map(table => table.name)) {
       await db[tabela].clear()
-      await db[tabela].bulkPut(rows)
+      const rows = Array.isArray(backup?.[tabela]) ? backup[tabela] : []
+      if (rows.length) await db[tabela].bulkPut(rows)
     }
     await db.config.put({ chave: MIGRATION_FLAG, valor: true })
   })

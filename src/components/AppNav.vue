@@ -12,6 +12,7 @@ import { useStore } from '../store.js'
 const s = useStore()
 const nav = [
   { id: 'painel', icon: 'fas fa-chart-pie', label: 'Painel' },
+  { id: 'financeiro', icon: 'fas fa-money-check-dollar', label: 'Financeiro' },
   { id: 'insumos', icon: 'fas fa-boxes', label: 'Ingredientes' },
   { id: 'receitas', icon: 'fas fa-book-open', label: 'Receitas' },
   { id: 'producao', icon: 'fas fa-industry', label: 'Produção' },
