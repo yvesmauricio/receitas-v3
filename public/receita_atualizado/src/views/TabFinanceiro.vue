@@ -275,10 +275,7 @@
                   <span class="badge badge-muted">{{ item.quantidade }}</span>
                 </div>
                 <div class="mei-line"><span>Receita MEI (Vendas)</span><strong class="c-green">{{ R$(item.receitas_mei) }}</strong></div>
-                <div class="mei-line renda-pessoal" v-if="item.outras_entradas_nao_mei">
-                  <span><i class="fas fa-hand-holding-heart" style="font-size:.7rem;color:#7c3aed"></i> Outras entradas (não-MEI)</span>
-                  <strong class="c-purple">{{ R$(item.outras_entradas_nao_mei) }}</strong>
-                </div>
+                <div class="mei-line renda-pessoal" v-if="item.renda_pessoal"><span><i class="fas fa-hand-holding-heart" style="font-size:.7rem;color:var(--brown-mid)"></i> Renda Pessoal</span><strong class="c-purple">{{ R$(item.renda_pessoal) }}</strong></div>
                 <div class="mei-line"><span>Rendimento</span><strong>{{ R$(item.rendimento_financeiro) }}</strong></div>
                 <div class="mei-line">
                   <span>Entrada Bruta (Banco)</span>
@@ -340,11 +337,6 @@
                 <div class="anual-valor c-green">{{ R$(totalAnual.receitas) }}</div>
                 <div class="anual-sub">PIX de clientes (excl. renda pessoal)</div>
               </div>
-              <div class="anual-item" v-if="totalAnual.outras_entradas" style="border-color:#ddd6fe; background:#faf5ff;">
-                <div class="anual-label" style="color:#6d28d9">Entradas Não-MEI</div>
-                <div class="anual-valor c-purple">{{ R$(totalAnual.outras_entradas) }}</div>
-                <div class="anual-sub">Renda pessoal, rendimentos (não conta no faturamento MEI)</div>
-              </div>
               <div class="anual-item">
                 <div class="anual-label">Despesas Operacionais</div>
                 <div class="anual-valor c-red">{{ R$(totalAnual.operacional) }}</div>
@@ -358,7 +350,7 @@
               <div class="anual-item destaque" :class="totalAnual.saldo >= 0 ? 'positivo' : 'negativo'">
                 <div class="anual-label">Saldo Operacional</div>
                 <div class="anual-valor" :class="totalAnual.saldo >= 0 ? 'c-green' : 'c-red'">{{ R$(totalAnual.saldo) }}</div>
-                <div class="anual-sub">Receita MEI − despesas operacionais</div>
+                <div class="anual-sub">Receita − despesas operacionais</div>
               </div>
             </div>
           </div>
@@ -632,11 +624,10 @@ const relatorioAnualMeses = computed(() =>
 const totalAnual = computed(() => {
   const m = relatorioAnualMeses.value
   return {
-    receitas:       m.reduce((a, i) => a + i.receitas_mei, 0),
-    outras_entradas: m.reduce((a, i) => a + (i.outras_entradas_nao_mei || 0), 0),
-    operacional:    m.reduce((a, i) => a + i.saidas_operacionais, 0),
-    pessoal:        m.reduce((a, i) => a + i.saidas_pessoais, 0),
-    saldo:          m.reduce((a, i) => a + i.saldo_operacional, 0)
+    receitas:    m.reduce((a, i) => a + i.receitas_mei, 0),
+    operacional: m.reduce((a, i) => a + i.saidas_operacionais, 0),
+    pessoal:     m.reduce((a, i) => a + i.saidas_pessoais, 0),
+    saldo:       m.reduce((a, i) => a + i.saldo_operacional, 0)
   }
 })
 

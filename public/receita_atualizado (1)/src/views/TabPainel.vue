@@ -1,0 +1,277 @@
+<template>
+  <div class="tab-painel">
+    <div class="tab-hdr">
+      <div class="tab-hdr-top">
+        <h2 class="tab-title"><i class="fas fa-chart-pie"></i> Painel de Negócio</h2>
+      </div>
+      <CategoryFilter v-model="periodoAtivo" :items="periodosNorm" />
+    </div>
+
+    <div class="painel-content">
+      <div v-if="s.loading" class="loading-box"><div class="spinner spinner-sm"></div></div>
+
+      <template v-else>
+        <!-- Cards de Resumo Financeiro -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-label">Produção Final</span>
+            <span class="stat-val">{{ stats.totalQtd }} <small>un</small></span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Custo Total</span>
+            <span class="stat-val c-orange">{{ R$(stats.totalCusto) }}</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Faturamento</span>
+            <span class="stat-val c-green">{{ R$(stats.totalVenda) }}</span>
+          </div>
+          <div class="stat-card highlight">
+            <span class="stat-label">Resultado</span>
+            <span class="stat-val" :class="stats.totalLucro >= 0 ? 'c-green' : 'c-red'">
+              {{ R$(stats.totalLucro) }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Gráfico de Categorias -->
+        <div class="section-label">📊 Produção por Categoria</div>
+        <div class="sheet-card mb-16">
+          <div class="sheet-body">
+            <div v-if="!stats.porCategoria.length" class="empty-mini">Sem produções no período</div>
+            <div v-for="cat in stats.porCategoria" :key="cat.nome" class="chart-row">
+              <div class="chart-info">
+                <span>{{ cat.nome }}</span>
+                <strong>{{ cat.qtd }} un</strong>
+              </div>
+              <div class="chart-bar-bg">
+                <div class="chart-bar-fill" :style="{ width: cat.percent + '%', backgroundColor: avatarColor(cat.nome) }"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ranking de Receitas -->
+        <div class="section-label">🏆 Ranking de Receitas</div>
+        <div class="sheet-card mb-16">
+          <div class="sheet-body p-0">
+            <div v-if="!stats.topReceitas.length" class="empty-mini">Sem dados no período</div>
+            <div v-for="(item, idx) in stats.topReceitas" :key="item.nome" class="list-row">
+              <div class="row-rank">{{ idx + 1 }}º</div>
+              <div class="row-info">
+                <div class="row-name">{{ item.nome }}</div>
+                <div class="row-sub">{{ item.qtd }} {{ item.unidade }} produzidas</div>
+              </div>
+              <div class="row-right">
+                <div class="row-val c-green">{{ R$(item.lucroTotal) }}</div>
+                <div class="row-sub">lucro est.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ingredientes Consumidos -->
+        <div class="section-label">🥣 Ingredientes Consumidos</div>
+        <div class="sheet-card mb-16">
+          <div class="sheet-body">
+            <div v-if="!stats.consumoInsumos.length" class="empty-mini">Sem dados no período</div>
+            <template v-else>
+              <div class="flex-hdr mb-10">
+                <p class="hint">Total estimado para reposição:</p>
+                <button class="btn-sec-sm" @click="compartilharLista">
+                  <i class="fas fa-share-nodes"></i> Compartilhar
+                </button>
+              </div>
+              <div class="insumo-list">
+                <div v-for="ins in stats.consumoInsumos" :key="ins.nome" class="chart-row">
+                  <div class="chart-info">
+                    <span class="usage-name">{{ ins.nome }}</span>
+                    <strong class="usage-val">{{ fmtQ(ins.total, ins.unidade) }}</strong>
+                  </div>
+                  <div class="chart-bar-bg">
+                    <div class="chart-bar-fill" :style="{ width: '100%', opacity: 0.15, backgroundColor: 'var(--gold)' }"></div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, watch, onMounted } from 'vue'
+import { useStore } from '../store.js'
+import CategoryFilter from '../components/CategoryFilter.vue'
+import { R$, avatarColor, fmtQtd as fmtQ } from '../utils.js'
+
+const s = useStore()
+const periodoAtivo = ref('7dias')
+const periodos = [
+  { v: '7dias', l: '7 Dias' },
+  { v: '30dias', l: '30 Dias' },
+  { v: 'total', l: 'Tudo' }
+]
+const periodosNorm = periodos.map(p => ({ value: p.v, label: p.l }))
+
+const atualizarDados = () => {
+  const dias = periodoAtivo.value === '7dias' ? 7 : periodoAtivo.value === '30dias' ? 30 : 0
+  s.carregarProducoes(dias)
+}
+
+watch(periodoAtivo, atualizarDados)
+onMounted(atualizarDados)
+
+function compartilharLista() {
+  if (!stats.value.consumoInsumos.length) return
+
+  const labelPeriodo = periodos.find(p => p.v === periodoAtivo.value)?.l || 'Período'
+  let texto = `🛒 *Lista de Compras - ${s.company.nome}*\n`
+  texto += `Estimativa baseada na produção: *${labelPeriodo}*\n\n`
+
+  stats.value.consumoInsumos.forEach(ins => {
+    texto += `• ${ins.nome}: *${fmtQ(ins.total, ins.unidade)}*\n`
+  })
+
+  texto += `\n_Gerado por ChocoStoq_`
+
+  if (navigator.share) {
+    navigator.share({ title: 'Lista de Compras', text: texto }).catch(() => {})
+  } else {
+    // Fallback para cópia ou link direto se o Share API não estiver disponível
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`
+    window.open(url, '_blank')
+  }
+}
+
+const stats = computed(() => {
+  const agora = new Date()
+  const filtradas = s.producoes.filter(p => {
+    if (periodoAtivo.value === 'total') return true
+    const dataProd = new Date(p.data_producao)
+    const dias = periodoAtivo.value === '7dias' ? 7 : 30
+    const limite = new Date().setDate(agora.getDate() - dias)
+    return dataProd >= limite
+  })
+
+  let totalQtd = 0, totalCusto = 0, totalVenda = 0
+  const catMap = {}, recMap = {}, insumoMap = {}
+
+  filtradas.forEach(p => {
+    const r = s.receitas.find(rec => rec.uuid === p.receita_id)
+    if (!r) return
+
+    const qtd = p.quantidade_produzida || 0
+    // Usa snapshot salvo no registro; fallback dinâmico para registros antigos
+    const custoUnitario  = p.custo_unitario_snapshot != null
+      ? p.custo_unitario_snapshot
+      : (s.getCustoTotal(r) / (r.rendimento || 1))
+    const custoTotalItem = custoUnitario * qtd
+    const vendaTotalItem = (r.preco_sugerido || 0) * qtd
+
+    if (!r.eh_intermediaria) {
+      totalQtd += qtd
+      totalCusto += custoTotalItem
+      totalVenda += vendaTotalItem
+      const cat = r.categoria || 'Outros'
+      catMap[cat] = (catMap[cat] || 0) + qtd
+    }
+
+    if (!recMap[r.uuid]) recMap[r.uuid] = { nome: r.nome, qtd: 0, custoTotal: 0, vendaTotal: 0, unidade: r.unidade_rendimento }
+    recMap[r.uuid].qtd += qtd
+    recMap[r.uuid].custoTotal += custoTotalItem
+    recMap[r.uuid].vendaTotal += vendaTotalItem
+
+    const fatorBase = qtd / (r.rendimento || 1)
+    s.expandirIngredientes(r.ingredientes || [], fatorBase, insumoMap)
+  })
+
+  const porCategoria = Object.entries(catMap).map(([nome, qtd]) => ({
+    nome, qtd, percent: (qtd / (totalQtd || 1)) * 100
+  })).sort((a,b) => b.qtd - a.qtd)
+
+  const topReceitas = Object.values(recMap).map(item => ({
+    ...item,
+    lucroTotal: item.vendaTotal - item.custoTotal
+  })).sort((a,b) => b.qtd - a.qtd).slice(0, 5)
+
+  const consumoInsumos = Object.values(insumoMap).sort((a,b) => b.total - a.total).slice(0, 8)
+
+  return { totalQtd, totalCusto, totalVenda, totalLucro: totalVenda - totalCusto, porCategoria, topReceitas, consumoInsumos }
+})
+</script>
+
+<style scoped>
+.tab-painel { display: flex; flex-direction: column; }
+
+.painel-content { padding: 16px 16px 100px; }
+
+/* ── KPI cards do painel (layout exclusivo desta tela) ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--surface);
+  padding: 14px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+}
+.stat-card.highlight { background: var(--gold-bg); border-color: var(--gold); }
+.stat-label {
+  font-size: .65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+  letter-spacing: .5px;
+}
+.stat-val { font-size: 1.1rem; font-weight: 800; color: var(--brown); font-family: var(--mono); }
+.stat-val small { font-size: .8rem; font-weight: 400; }
+
+.flex-hdr { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* ── Cards de seção (exclusivos do painel) ── */
+.sheet-card {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.sheet-body { padding: 14px; }
+
+/* ── Ranking ── */
+.row-rank { width: 28px; font-weight: 800; color: var(--gold); font-size: .8rem; flex-shrink: 0; }
+
+/* ── Gráfico de barras ── */
+.chart-row { margin-bottom: 12px; }
+.chart-row:last-child { margin-bottom: 0; }
+.chart-info { display: flex; justify-content: space-between; font-size: .85rem; margin-bottom: 5px; color: var(--text); }
+.chart-info strong { font-family: var(--mono); }
+.chart-bar-bg { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+.chart-bar-fill { height: 100%; border-radius: 4px; transition: width .5s ease-out; }
+
+/* ── Lista de insumos consumidos ── */
+.insumo-list { display: flex; flex-direction: column; gap: 8px; }
+.insumo-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: var(--r-sm);
+  border-left: 3px solid var(--gold);
+}
+.usage-name { font-size: .83rem; font-weight: 600; color: var(--brown); }
+.usage-val { font-size: .85rem; font-family: var(--mono); font-weight: 700; color: var(--muted); }
+
+.hint { font-size: .75rem; color: var(--muted); font-style: italic; }
+.empty-mini { text-align: center; color: var(--muted); padding: 20px; font-size: .8rem; }
+</style>

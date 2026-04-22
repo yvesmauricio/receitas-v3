@@ -1227,10 +1227,6 @@ export const useStore = defineStore('choco', () => {
   const relatorioMensalMei = computed(() => {
     return resumoFinanceiroPorMes.value.map(item => ({
       ...item,
-      // Tudo que entrou mas NÃO é receita MEI nem rendimento financeiro (ex: Renda Pessoal, pensão, etc.)
-      outras_entradas_nao_mei: Math.max(0,
-        Number(item.entradas || 0) - Number(item.receitas_mei || 0) - Number(item.rendimento_financeiro || 0)
-      ),
       saldo_operacional: Number(item.receitas_mei || 0) - Number(item.saidas_operacionais || 0),
       saldo_mes: Number(item.entradas || 0) - Number(item.saidas_operacionais || 0) - Number(item.saidas_pessoais || 0)
     }))
