@@ -782,6 +782,7 @@ import ImportadorBancoBrasil from '../components/ImportadorBancoBrasil.vue'
 import EditarCategoriaModal from '../components/EditarCategoriaModal.vue'
 import { useStore } from '../store.js'
 import { R$ } from '../utils.js'
+import { gerarLivroCaixa, gerarDASNSIMEI } from '../composables/Usegerardocumento.js'
 import { useConfirm } from '../composables/useConfirm.js'
 
 const s = useStore()
@@ -1135,7 +1136,37 @@ const acumuladoAteMes = computed(() => {
 
 onMounted(() => s.carregarFinanceiro())
 
-function imprimir() { window.print() }
+function imprimir() {
+  if (abaAtiva.value === 'relatorios') {
+    if (relTipo.value === 'mensal') {
+      if (!dadosRelMensal.value) {
+        s.notify('Não há dados para gerar o Livro Caixa deste mês.', 'warning')
+        return
+      }
+      gerarLivroCaixa({
+        mes_ref: relMensalMesRef.value,
+        empresa: s.company,
+        entradas: lancMensalEntradas.value,
+        naoMei: lancMensalNaoMei.value,
+        saidas: lancMensalOperacional.value,
+        totais: dadosRelMensal.value,
+        acumulado: acumuladoAteMes.value
+      })
+    } else {
+      gerarDASNSIMEI({
+        ano: anoRelAnual.value,
+        empresa: s.company,
+        meses: relatorioAnualMeses.value,
+        totais: totalAnual.value,
+        tetoAnual: TETO_MEI_ANUAL,
+        pctTeto: percentualTeto.value
+      })
+    }
+    return
+  }
+
+  window.print()
+}
 </script>
 
 <style scoped>
