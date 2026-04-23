@@ -235,6 +235,9 @@
     <!-- ═══ ABA: MENSAL ═══ -->
     <template v-else-if="abaAtiva === 'mensal'">
       <div class="relatorio-wrap">
+        <div class="rel-print-bar">
+          <button class="btn-print" @click="imprimir"><i class="fas fa-print"></i> Imprimir relatório</button>
+        </div>
         <!-- Resumo por banco -->
         <section class="sheet-card">
           <div class="sheet-body">
@@ -324,6 +327,9 @@
     <!-- ═══ ABA: ANUAL ═══ -->
     <template v-else-if="abaAtiva === 'anual'">
       <div class="relatorio-wrap">
+        <div class="rel-print-bar">
+          <button class="btn-print" @click="imprimir"><i class="fas fa-print"></i> Imprimir relatório</button>
+        </div>
         <!-- Seletor de ano -->
         <div class="ano-selector-inline">
           <button v-for="a in anosDisponiveis" :key="a" class="ano-btn"
@@ -412,6 +418,328 @@
       </div>
     </template>
 
+    <!-- ═══ ABA: RELATÓRIOS ═══ -->
+    <template v-else-if="abaAtiva === 'relatorios'">
+      <div class="relatorio-wrap">
+
+        <!-- ── Seletor tipo relatório ── -->
+        <div class="rel-tipo-nav">
+          <button class="rel-tipo-btn" :class="{ active: relTipo === 'mensal' }" @click="relTipo = 'mensal'">
+            <i class="fas fa-calendar-days"></i> Livro Caixa Mensal
+          </button>
+          <button class="rel-tipo-btn" :class="{ active: relTipo === 'anual' }" @click="relTipo = 'anual'">
+            <i class="fas fa-file-invoice-dollar"></i> Declaração Anual
+          </button>
+        </div>
+
+        <!-- ══ BARRA TETO MEI ════════════════════════════ -->
+        <section class="sheet-card teto-card">
+          <div class="sheet-body">
+            <div class="teto-header">
+              <div>
+                <div class="teto-titulo">Faturamento MEI · {{ anoRelatorioAtual }}</div>
+                <div class="teto-sub">Limite anual: {{ R$(TETO_MEI_ANUAL) }}</div>
+              </div>
+              <div class="teto-valor-wrap">
+                <div class="teto-valor" :class="percentualTeto >= 90 ? 'c-red' : percentualTeto >= 70 ? 'c-orange' : 'c-green'">
+                  {{ R$(faturamentoAnoRel) }}
+                </div>
+                <div class="teto-pct">{{ percentualTeto.toFixed(1) }}% do teto</div>
+              </div>
+            </div>
+            <div class="teto-barra-wrap">
+              <div class="teto-barra-bg">
+                <div class="teto-barra-fill"
+                  :style="{ width: Math.min(100, percentualTeto) + '%' }"
+                  :class="percentualTeto >= 90 ? 'danger' : percentualTeto >= 70 ? 'warning' : 'ok'">
+                </div>
+                <div class="teto-barra-mark" v-if="percentualTeto < 100" :title="'Faltam ' + R$(TETO_MEI_ANUAL - faturamentoAnoRel)">
+                  <span class="teto-falta">Faltam {{ R$(Math.max(0, TETO_MEI_ANUAL - faturamentoAnoRel)) }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="teto-alertas" v-if="percentualTeto >= 70">
+              <div class="teto-alerta" :class="percentualTeto >= 90 ? 'alerta-danger' : 'alerta-warning'">
+                <i class="fas" :class="percentualTeto >= 90 ? 'fa-triangle-exclamation' : 'fa-circle-info'"></i>
+                <span v-if="percentualTeto >= 100">Teto MEI atingido. Consulte um contador para regularização.</span>
+                <span v-else-if="percentualTeto >= 90">Atenção: mais de 90% do teto atingido. Monitore os próximos recebimentos.</span>
+                <span v-else>Mais de 70% do teto utilizado. Fique atento ao limite.</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ══ RELATÓRIO MENSAL — LIVRO CAIXA ══════════════ -->
+        <template v-if="relTipo === 'mensal'">
+          <section class="sheet-card">
+            <div class="sheet-body">
+              <div class="section-head">
+                <h4><i class="fas fa-calendar-days"></i> Livro Caixa MEI · Mensal</h4>
+                <div class="sh-tools">
+                  <select class="filtro-select sm" v-model="relMensalMesRef">
+                    <option v-for="m in mesesRelatorio" :key="m.value" :value="m.value">{{ m.label }}</option>
+                  </select>
+                  <button class="btn-print btn-print-sm" @click="imprimir" title="Imprimir"><i class="fas fa-print"></i></button>
+                </div>
+              </div>
+
+              <!-- Cabeçalho formal -->
+              <div class="lc-cabecalho" v-if="dadosRelMensal">
+                <div class="lc-cb-linha"><span>Contribuinte (MEI):</span><strong>{{ nomeContribuinte }}</strong></div>
+                <div class="lc-cb-linha"><span>Competência:</span><strong>{{ relMensalMesRef }}</strong></div>
+                <div class="lc-cb-linha"><span>Atividade:</span><strong>Produção e venda de alimentos artesanais</strong></div>
+              </div>
+
+              <div v-if="!dadosRelMensal" class="empty-mini">Sem dados para este mês.</div>
+              <template v-else>
+
+                <!-- Tabela Receitas -->
+                <div class="lc-section-label entrada">↑ RECEITAS / ENTRADAS</div>
+                <div class="lc-tabela">
+                  <div class="lc-hdr">
+                    <span class="lc-col-data">Data</span>
+                    <span class="lc-col-desc">Descrição / Origem</span>
+                    <span class="lc-col-cat">Tipo</span>
+                    <span class="lc-col-val">Valor</span>
+                  </div>
+                  <div v-for="item in lancMensalEntradas" :key="item.id" class="lc-row entrada-row">
+                    <span class="lc-col-data">{{ formatarData(item.data) }}</span>
+                    <span class="lc-col-desc">{{ item.descricao }}</span>
+                    <span class="lc-col-cat"><span class="lc-badge lc-entrada">{{ item.categoria }}</span></span>
+                    <span class="lc-col-val c-green">{{ R$(item.valor) }}</span>
+                  </div>
+                  <div v-if="!lancMensalEntradas.length" class="lc-vazio">Nenhuma receita neste mês.</div>
+                  <div class="lc-total">
+                    <span class="lc-total-label">Total Receita MEI (faturamento)</span>
+                    <strong class="c-green">{{ R$(dadosRelMensal.receitas_mei) }}</strong>
+                  </div>
+                </div>
+
+                <!-- Entradas não-MEI (informativo) -->
+                <template v-if="lancMensalNaoMei.length">
+                  <div class="lc-section-label pessoal">↑ OUTRAS ENTRADAS (não compõem faturamento MEI)</div>
+                  <div class="lc-tabela">
+                    <div v-for="item in lancMensalNaoMei" :key="item.id" class="lc-row pessoal-row">
+                      <span class="lc-col-data">{{ formatarData(item.data) }}</span>
+                      <span class="lc-col-desc">{{ item.descricao }}</span>
+                      <span class="lc-col-cat"><span class="lc-badge lc-pessoal">{{ item.categoria }}</span></span>
+                      <span class="lc-col-val c-purple">{{ R$(item.valor) }}</span>
+                    </div>
+                    <div class="lc-total pessoal-total">
+                      <span class="lc-total-label">Total Outras Entradas</span>
+                      <strong class="c-purple">{{ R$(dadosRelMensal.outras_entradas_nao_mei) }}</strong>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Tabela Despesas Operacionais -->
+                <div class="lc-section-label saida">↓ DESPESAS OPERACIONAIS</div>
+                <div class="lc-tabela">
+                  <div v-for="item in lancMensalOperacional" :key="item.id" class="lc-row saida-row">
+                    <span class="lc-col-data">{{ formatarData(item.data) }}</span>
+                    <span class="lc-col-desc">{{ item.descricao }}</span>
+                    <span class="lc-col-cat"><span class="lc-badge lc-saida">{{ item.categoria }}</span></span>
+                    <span class="lc-col-val c-red">{{ R$(Math.abs(item.valor)) }}</span>
+                  </div>
+                  <div v-if="!lancMensalOperacional.length" class="lc-vazio">Nenhuma despesa operacional.</div>
+                  <div class="lc-total">
+                    <span class="lc-total-label">Total Despesas Operacionais</span>
+                    <strong class="c-red">{{ R$(dadosRelMensal.saidas_operacionais) }}</strong>
+                  </div>
+                </div>
+
+                <!-- Resumo do mês -->
+                <div class="lc-resumo">
+                  <div class="lc-resumo-linha">
+                    <span>Receita MEI bruta</span>
+                    <strong class="c-green">{{ R$(dadosRelMensal.receitas_mei) }}</strong>
+                  </div>
+                  <div class="lc-resumo-linha" v-if="dadosRelMensal.outras_entradas_nao_mei">
+                    <span>Outras entradas (não-MEI)</span>
+                    <strong class="c-purple">{{ R$(dadosRelMensal.outras_entradas_nao_mei) }}</strong>
+                  </div>
+                  <div class="lc-resumo-linha">
+                    <span>( − ) Despesas operacionais</span>
+                    <strong class="c-red">{{ R$(dadosRelMensal.saidas_operacionais) }}</strong>
+                  </div>
+                  <div class="lc-resumo-linha destaque">
+                    <span>= Resultado operacional MEI</span>
+                    <strong :class="dadosRelMensal.saldo_operacional >= 0 ? 'c-green' : 'c-red'">
+                      {{ R$(dadosRelMensal.saldo_operacional) }}
+                    </strong>
+                  </div>
+                  <div class="lc-resumo-linha sub">
+                    <span>Rendimentos financeiros</span>
+                    <strong>{{ R$(dadosRelMensal.rendimento_financeiro) }}</strong>
+                  </div>
+                  <div class="lc-resumo-linha sub">
+                    <span>Retiradas pessoais / Pró-labore</span>
+                    <strong class="c-red">{{ R$(dadosRelMensal.saidas_pessoais) }}</strong>
+                  </div>
+                </div>
+
+                <!-- Acumulado do ano -->
+                <div class="lc-acumulado">
+                  <div class="lc-acum-titulo">Acumulado {{ anoRelatorioAtual }} até {{ relMensalMesRef }}</div>
+                  <div class="lc-acum-grid">
+                    <div class="lc-acum-item">
+                      <span>Faturamento MEI</span>
+                      <strong class="c-green">{{ R$(acumuladoAteMes.receitas_mei) }}</strong>
+                    </div>
+                    <div class="lc-acum-item">
+                      <span>Despesas operacionais</span>
+                      <strong class="c-red">{{ R$(acumuladoAteMes.saidas_operacionais) }}</strong>
+                    </div>
+                    <div class="lc-acum-item">
+                      <span>Resultado acumulado</span>
+                      <strong :class="acumuladoAteMes.saldo_operacional >= 0 ? 'c-green' : 'c-red'">
+                        {{ R$(acumuladoAteMes.saldo_operacional) }}
+                      </strong>
+                    </div>
+                    <div class="lc-acum-item">
+                      <span>% do teto MEI</span>
+                      <strong :class="acumuladoAteMes.pct_teto >= 90 ? 'c-red' : acumuladoAteMes.pct_teto >= 70 ? 'c-orange' : 'c-green'">
+                        {{ acumuladoAteMes.pct_teto.toFixed(1) }}%
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+              </template>
+            </div>
+          </section>
+        </template>
+
+        <!-- ══ RELATÓRIO ANUAL — DASN-SIMEI ═══════════════ -->
+        <template v-if="relTipo === 'anual'">
+          <section class="sheet-card">
+            <div class="sheet-body">
+              <div class="section-head">
+                <h4><i class="fas fa-file-invoice-dollar"></i> Declaração Anual · DASN-SIMEI</h4>
+                <div class="sh-tools">
+                  <select class="filtro-select sm" v-model="anoRelAnual">
+                    <option v-for="a in anosDisponiveis" :key="a" :value="a">{{ a }}</option>
+                  </select>
+                  <button class="btn-print btn-print-sm" @click="imprimir" title="Imprimir"><i class="fas fa-print"></i></button>
+                </div>
+              </div>
+
+              <div class="lc-cabecalho">
+                <div class="lc-cb-linha"><span>Contribuinte (MEI):</span><strong>{{ nomeContribuinte }}</strong></div>
+                <div class="lc-cb-linha"><span>Ano-calendário:</span><strong>{{ anoRelAnual }}</strong></div>
+                <div class="lc-cb-linha"><span>Documento:</span><strong>DASN-SIMEI — Declaração Anual do Simples Nacional MEI</strong></div>
+              </div>
+
+              <!-- Quadro 1: Receita Bruta MEI -->
+              <div class="lc-section-label entrada">QUADRO 1 — RECEITA BRUTA MEI (art. 18-A LC 123/2006)</div>
+              <div class="lc-quadro">
+                <div class="lc-q-linha hdr">
+                  <span>Mês de competência</span>
+                  <span>Receita de Vendas/Serviços</span>
+                  <span>Outras Receitas</span>
+                  <span>Total MEI</span>
+                </div>
+                <div v-for="item in relatorioAnualMeses" :key="item.mes_ref" class="lc-q-linha">
+                  <span class="lc-q-mes">{{ item.mes_ref }}</span>
+                  <span class="c-green">{{ R$(item.receitas_mei) }}</span>
+                  <span>{{ R$(0) }}</span>
+                  <span class="c-green fw700">{{ R$(item.receitas_mei) }}</span>
+                </div>
+                <div v-if="!relatorioAnualMeses.length" class="lc-vazio">Sem dados para o ano.</div>
+                <div class="lc-q-linha total">
+                  <span>TOTAL ANUAL</span>
+                  <span class="c-green fw700">{{ R$(totalAnual.receitas) }}</span>
+                  <span>{{ R$(0) }}</span>
+                  <span class="c-green fw700">{{ R$(totalAnual.receitas) }}</span>
+                </div>
+              </div>
+
+              <!-- Quadro 2: Outras entradas (informativo) -->
+              <div class="lc-section-label pessoal" v-if="totalAnual.outras_entradas">
+                INFORMATIVO — ENTRADAS NÃO-MEI (excluídas do faturamento tributável)
+              </div>
+              <div class="lc-quadro" v-if="totalAnual.outras_entradas">
+                <div class="lc-q-linha hdr">
+                  <span>Descrição</span>
+                  <span>Total {{ anoRelAnual }}</span>
+                </div>
+                <div class="lc-q-linha">
+                  <span>Renda Pessoal / Outras entradas não-MEI</span>
+                  <span class="c-purple fw700">{{ R$(totalAnual.outras_entradas) }}</span>
+                </div>
+              </div>
+
+              <!-- Quadro 3: Despesas operacionais -->
+              <div class="lc-section-label saida">QUADRO 2 — DESPESAS DO EXERCÍCIO</div>
+              <div class="lc-quadro">
+                <div class="lc-q-linha hdr">
+                  <span>Mês</span>
+                  <span>Despesas operacionais</span>
+                  <span>Retiradas pessoais</span>
+                  <span>Total saídas</span>
+                </div>
+                <div v-for="item in relatorioAnualMeses" :key="item.mes_ref" class="lc-q-linha">
+                  <span class="lc-q-mes">{{ item.mes_ref }}</span>
+                  <span class="c-red">{{ R$(item.saidas_operacionais) }}</span>
+                  <span>{{ R$(item.saidas_pessoais) }}</span>
+                  <span class="fw700">{{ R$(item.saidas_operacionais + item.saidas_pessoais) }}</span>
+                </div>
+                <div class="lc-q-linha total">
+                  <span>TOTAL ANUAL</span>
+                  <span class="c-red fw700">{{ R$(totalAnual.operacional) }}</span>
+                  <span class="fw700">{{ R$(totalAnual.pessoal) }}</span>
+                  <span class="fw700">{{ R$(totalAnual.operacional + totalAnual.pessoal) }}</span>
+                </div>
+              </div>
+
+              <!-- Quadro resumo final -->
+              <div class="lc-section-label">RESULTADO DO EXERCÍCIO {{ anoRelAnual }}</div>
+              <div class="lc-resumo-anual">
+                <div class="lra-linha">
+                  <span>Receita Bruta MEI (faturamento tributável)</span>
+                  <strong class="c-green">{{ R$(totalAnual.receitas) }}</strong>
+                </div>
+                <div class="lra-linha" v-if="totalAnual.outras_entradas">
+                  <span>Outras entradas não-MEI (informativo)</span>
+                  <strong class="c-purple">{{ R$(totalAnual.outras_entradas) }}</strong>
+                </div>
+                <div class="lra-linha">
+                  <span>( − ) Total de despesas operacionais</span>
+                  <strong class="c-red">{{ R$(totalAnual.operacional) }}</strong>
+                </div>
+                <div class="lra-linha destaque">
+                  <span>= Resultado líquido do negócio</span>
+                  <strong :class="totalAnual.saldo >= 0 ? 'c-green' : 'c-red'">{{ R$(totalAnual.saldo) }}</strong>
+                </div>
+                <div class="lra-linha sub">
+                  <span>Retiradas pessoais (Pró-labore)</span>
+                  <strong>{{ R$(totalAnual.pessoal) }}</strong>
+                </div>
+                <div class="lra-verificacao">
+                  <i class="fas" :class="totalAnual.receitas <= TETO_MEI_ANUAL ? 'fa-circle-check' : 'fa-triangle-exclamation'"></i>
+                  <span v-if="totalAnual.receitas <= TETO_MEI_ANUAL">
+                    Dentro do teto MEI ({{ R$(totalAnual.receitas) }} de {{ R$(TETO_MEI_ANUAL) }})
+                  </span>
+                  <span v-else>
+                    Faturamento ACIMA do teto MEI — verificar obrigações com contador
+                  </span>
+                </div>
+              </div>
+
+            </div>
+          </section>
+        </template>
+
+        <!-- Nota de rodapé -->
+        <div class="rel-nota">
+          <i class="fas fa-circle-info"></i>
+          Teto MEI {{ anoRelatorioAtual }}: {{ R$(TETO_MEI_ANUAL) }}/ano · Dados gerados com base nos lançamentos importados.
+          A DASN-SIMEI deve ser entregue até 31/05 do ano seguinte via portal gov.br/mei.
+        </div>
+
+      </div>
+    </template>
+
     <!-- ── Barra flutuante de ações em lote ── -->
     <Transition name="barra-lote">
       <div v-if="modoSelecao && selecionados.size" class="barra-lote">
@@ -465,7 +793,8 @@ const bancoImport = ref('pagbank')
 const abas = [
   { id: 'lancamentos', label: 'Lançamentos', icon: 'fas fa-list' },
   { id: 'mensal',      label: 'Mensal',       icon: 'fas fa-calendar' },
-  { id: 'anual',       label: 'Anual',         icon: 'fas fa-chart-bar' }
+  { id: 'anual',       label: 'Anual',         icon: 'fas fa-chart-bar' },
+  { id: 'relatorios',  label: 'Relatórios',    icon: 'fas fa-file-invoice' }
 ]
 const abaAtiva = ref('lancamentos')
 
@@ -721,7 +1050,92 @@ function normalizarTexto(valor) {
 
 function abrirModalEdicao(lancamento) { lancamentoEmEdicao.value = lancamento }
 
+// ── Relatórios ──────────────────────────────────────────────
+const TETO_MEI_ANUAL = 81000   // Atualizar conforme publicação da RFB para o ano vigente
+const nomeContribuinte = 'MEI — Conta PagBank / Itaú'
+
+const relTipo = ref('mensal')
+const anoRelatorioAtual = computed(() => anoRelAnual.value)
+
+// Meses disponíveis como { value, label } para o select do relatório mensal
+const mesesRelatorio = computed(() =>
+  mesesDisponiveis.value.map(m => ({ value: m, label: m }))
+)
+
+// Mês selecionado no relatório mensal (default: mês mais recente disponível)
+const relMensalMesRef = ref('')
+watch(mesesDisponiveis, (meses) => {
+  if (meses.length && !relMensalMesRef.value) relMensalMesRef.value = meses[0]
+}, { immediate: true })
+
+// Dados do mês selecionado no relatório mensal
+const dadosRelMensal = computed(() =>
+  s.relatorioMensalMei.find(i => i.mes_ref === relMensalMesRef.value) || null
+)
+
+// Lançamentos do mês selecionado — MEI (entradas)
+const lancMensalEntradas = computed(() => {
+  if (!relMensalMesRef.value) return []
+  return s.financeiro.filter(i =>
+    i.mes_ref === relMensalMesRef.value &&
+    i.natureza === 'entrada' &&
+    i.categoria !== 'Rendimento Financeiro' &&
+    i.valor > 0
+  )
+})
+
+// Lançamentos do mês — entradas não-MEI (pessoal positivo, ex: Renda Pessoal)
+const lancMensalNaoMei = computed(() => {
+  if (!relMensalMesRef.value) return []
+  return s.financeiro.filter(i =>
+    i.mes_ref === relMensalMesRef.value &&
+    i.natureza === 'pessoal' &&
+    i.valor > 0
+  )
+})
+
+// Lançamentos do mês — despesas operacionais
+const lancMensalOperacional = computed(() => {
+  if (!relMensalMesRef.value) return []
+  return s.financeiro.filter(i =>
+    i.mes_ref === relMensalMesRef.value &&
+    i.natureza === 'operacional' &&
+    i.valor < 0
+  )
+})
+
+// Faturamento MEI do ano do relatório
+const faturamentoAnoRel = computed(() =>
+  s.relatorioMensalMei
+    .filter(i => i.mes_ref.endsWith(`/${anoRelAnual.value}`))
+    .reduce((a, i) => a + (i.receitas_mei || 0), 0)
+)
+
+const percentualTeto = computed(() =>
+  TETO_MEI_ANUAL > 0 ? (faturamentoAnoRel.value / TETO_MEI_ANUAL) * 100 : 0
+)
+
+// Acumulado do ano até o mês selecionado no relatório mensal
+const acumuladoAteMes = computed(() => {
+  const [mesAtual, anoAtual] = (relMensalMesRef.value || '').split('/')
+  if (!mesAtual || !anoAtual) return { receitas_mei: 0, saidas_operacionais: 0, saldo_operacional: 0, pct_teto: 0 }
+  const mesesDoAno = s.relatorioMensalMei.filter(i => {
+    const [m, a] = i.mes_ref.split('/')
+    return a === anoAtual && Number(m) <= Number(mesAtual)
+  })
+  const receitas_mei = mesesDoAno.reduce((a, i) => a + (i.receitas_mei || 0), 0)
+  const saidas_operacionais = mesesDoAno.reduce((a, i) => a + (i.saidas_operacionais || 0), 0)
+  return {
+    receitas_mei,
+    saidas_operacionais,
+    saldo_operacional: receitas_mei - saidas_operacionais,
+    pct_teto: TETO_MEI_ANUAL > 0 ? (receitas_mei / TETO_MEI_ANUAL) * 100 : 0
+  }
+})
+
 onMounted(() => s.carregarFinanceiro())
+
+function imprimir() { window.print() }
 </script>
 
 <style scoped>
@@ -1162,9 +1576,472 @@ onMounted(() => s.carregarFinanceiro())
 .c-green { color: var(--green); }
 .c-red   { color: var(--red); }
 .c-purple { color: #7c3aed; }
+.c-orange { color: #c2710c; }
+.fw700 { font-weight: 700; }
 .renda-pessoal { background: rgba(124,58,237,.04); border-radius: 4px; padding-left: 4px; padding-right: 4px; }
 
+/* ── Aba Relatórios ─────────────────────────────────────── */
+.rel-tipo-nav {
+  display: flex;
+  gap: 8px;
+  padding: 0 0 4px;
+}
+.rel-tipo-btn {
+  flex: 1;
+  padding: 9px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all var(--t);
+}
+.rel-tipo-btn.active {
+  background: var(--brown);
+  color: #fff;
+  border-color: var(--brown);
+}
+
+/* ── Barra de teto ── */
+.teto-card { border-left: 3px solid var(--brown); }
+.teto-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
+.teto-titulo { font-size: .88rem; font-weight: 800; color: var(--brown-dark); }
+.teto-sub { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+.teto-valor-wrap { text-align: right; flex-shrink: 0; }
+.teto-valor { font-family: var(--mono); font-size: 1.1rem; font-weight: 800; }
+.teto-pct { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+
+.teto-barra-wrap { margin-bottom: 8px; }
+.teto-barra-bg {
+  position: relative;
+  height: 14px;
+  background: var(--cream-deep);
+  border-radius: 99px;
+  overflow: visible;
+}
+.teto-barra-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width .6s ease;
+}
+.teto-barra-fill.ok      { background: var(--green); }
+.teto-barra-fill.warning { background: #c2710c; }
+.teto-barra-fill.danger  { background: var(--red); }
+.teto-barra-mark { margin-top: 4px; text-align: right; }
+.teto-falta { font-size: .7rem; color: var(--muted); font-weight: 600; }
+
+.teto-alertas { margin-top: 4px; }
+.teto-alerta {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--r-md);
+  font-size: .78rem;
+  font-weight: 600;
+}
+.teto-alerta.alerta-warning { background: #fef3c7; color: #92400e; }
+.teto-alerta.alerta-danger  { background: var(--red-bg); color: var(--red); }
+.teto-alerta i { flex-shrink: 0; margin-top: 1px; }
+
+/* ── Livro Caixa ── */
+.lc-cabecalho {
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.lc-cb-linha {
+  display: flex;
+  gap: 8px;
+  font-size: .78rem;
+  align-items: baseline;
+}
+.lc-cb-linha span { color: var(--muted); min-width: 90px; flex-shrink: 0; }
+.lc-cb-linha strong { color: var(--text); font-size: .8rem; }
+
+.lc-section-label {
+  font-size: .65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  padding: 8px 10px 6px;
+  margin: 10px -14px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.lc-section-label.entrada { background: #f0fdf4; color: var(--green); }
+.lc-section-label.saida   { background: #fff1f2; color: var(--red); }
+.lc-section-label.pessoal { background: #faf5ff; color: #6d28d9; }
+.lc-section-label:not(.entrada):not(.saida):not(.pessoal) { background: var(--cream); color: var(--brown-mid); }
+
+.lc-tabela { margin-bottom: 4px; }
+.lc-hdr {
+  display: grid;
+  grid-template-columns: 56px 1fr 80px 64px;
+  gap: 4px;
+  padding: 6px 0 4px;
+  font-size: .62rem;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  border-bottom: 1px solid var(--border);
+}
+.lc-row {
+  display: grid;
+  grid-template-columns: 56px 1fr 80px 64px;
+  gap: 4px;
+  padding: 7px 0;
+  font-size: .78rem;
+  border-bottom: 1px dashed var(--border);
+  align-items: start;
+}
+.lc-row:last-of-type { border-bottom: none; }
+.lc-col-data { color: var(--muted); font-size: .72rem; padding-top: 1px; }
+.lc-col-desc { color: var(--text); word-break: break-word; line-height: 1.35; }
+.lc-col-cat  { }
+.lc-col-val  { text-align: right; font-family: var(--mono); font-size: .8rem; font-weight: 600; }
+.lc-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: .64rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.lc-entrada { background: var(--green-bg); color: var(--green); }
+.lc-saida   { background: var(--red-bg); color: var(--red); }
+.lc-pessoal { background: #f5f3ff; color: #6d28d9; }
+
+.lc-vazio { font-size: .78rem; color: var(--muted); padding: 8px 0; }
+
+.lc-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0 4px;
+  border-top: 2px solid var(--border2);
+  font-size: .8rem;
+  font-weight: 700;
+}
+.lc-total-label { color: var(--text); }
+.lc-total strong { font-family: var(--mono); font-size: .88rem; }
+.pessoal-total { border-top-color: #ddd6fe; }
+
+/* Resumo do mês */
+.lc-resumo {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.lc-resumo-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: .8rem;
+  border-bottom: 1px solid var(--border);
+}
+.lc-resumo-linha:last-child { border-bottom: none; }
+.lc-resumo-linha span { color: var(--muted); }
+.lc-resumo-linha strong { font-family: var(--mono); font-size: .84rem; }
+.lc-resumo-linha.destaque { background: var(--cream); font-weight: 700; }
+.lc-resumo-linha.destaque span { color: var(--text); font-weight: 700; }
+.lc-resumo-linha.sub { background: var(--bg); opacity: .8; }
+
+/* Acumulado */
+.lc-acumulado {
+  margin-top: 14px;
+  background: var(--gold-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+}
+.lc-acum-titulo {
+  font-size: .72rem;
+  font-weight: 800;
+  color: var(--brown-mid);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 10px;
+}
+.lc-acum-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.lc-acum-item {
+  background: var(--surface);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+}
+.lc-acum-item span { display: block; font-size: .66rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 4px; }
+.lc-acum-item strong { font-family: var(--mono); font-size: .88rem; font-weight: 800; }
+
+/* Quadro anual */
+.lc-quadro {
+  margin-bottom: 4px;
+  overflow-x: auto;
+}
+.lc-q-linha {
+  display: grid;
+  grid-template-columns: 80px repeat(3, 1fr);
+  gap: 4px;
+  padding: 7px 0;
+  font-size: .76rem;
+  border-bottom: 1px dashed var(--border);
+  align-items: center;
+}
+.lc-q-linha.hdr {
+  font-size: .62rem;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  border-bottom: 1px solid var(--border2);
+}
+.lc-q-linha.total {
+  font-weight: 700;
+  border-top: 2px solid var(--border2);
+  border-bottom: none;
+  background: var(--cream);
+  padding: 8px 4px;
+  border-radius: var(--r-sm);
+  margin-top: 2px;
+}
+.lc-q-mes { color: var(--text); font-weight: 600; }
+.lc-q-linha span { font-family: var(--mono); }
+.lc-q-linha span:first-child { font-family: var(--font); }
+
+/* Resumo anual */
+.lc-resumo-anual {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.lra-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  font-size: .8rem;
+  border-bottom: 1px solid var(--border);
+}
+.lra-linha span { color: var(--muted); }
+.lra-linha strong { font-family: var(--mono); font-size: .86rem; }
+.lra-linha.destaque { background: var(--cream); font-weight: 700; }
+.lra-linha.destaque span { color: var(--text); font-weight: 700; }
+.lra-linha.sub { background: var(--bg); opacity: .8; font-size: .76rem; }
+.lra-verificacao {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  font-size: .76rem;
+  font-weight: 700;
+  background: var(--green-bg);
+  color: var(--green);
+  border-top: 1px solid var(--border);
+}
+.lra-verificacao i { font-size: .85rem; }
+
+/* Nota rodapé */
+.rel-nota {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: .72rem;
+  color: var(--muted);
+  line-height: 1.5;
+  padding: 10px 4px 4px;
+}
+.rel-nota i { flex-shrink: 0; color: var(--brown-light); margin-top: 1px; }
+
 @media (min-width: 420px) {
-  .mei-grid { grid-template-columns: repeat(2, 1fr); }
+  .mei-grid { display: grid; grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ════════════════════════════════════════════════════════════
+   FIXES SAMSUNG A22 — tela estreita (≤ 380px)
+   ════════════════════════════════════════════════════════════ */
+
+/* 1 ── Cards de banco: empilhar em coluna única */
+@media (max-width: 380px) {
+  .banco-resumo-grid { grid-template-columns: 1fr; }
+}
+
+/* 2 ── Livro Caixa: layout mobile — descrição + valor na linha 1, data + tipo na linha 2 */
+@media (max-width: 380px) {
+  .lc-hdr { display: none; }
+  .lc-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 0;
+    padding: 9px 0;
+  }
+  .lc-col-desc {
+    order: 0;
+    flex: 1 1 calc(100% - 76px);
+    min-width: 0;
+    font-size: .78rem;
+    font-weight: 600;
+    color: var(--text);
+    padding-right: 6px;
+    word-break: break-word;
+    line-height: 1.35;
+  }
+  .lc-col-val {
+    order: 1;
+    flex: 0 0 auto;
+    min-width: 72px;
+    font-size: .78rem;
+    text-align: right;
+    padding-top: 0;
+  }
+  .lc-col-data {
+    order: 2;
+    flex: 0 0 auto;
+    font-size: .65rem;
+    color: var(--muted);
+    padding-top: 3px;
+    margin-right: 8px;
+  }
+  .lc-col-cat {
+    order: 3;
+    flex: 0 0 auto;
+    padding-top: 3px;
+  }
+}
+
+/* 3 ── Tabela anual (detalhamento mensal): scroll horizontal */
+.tabela-anual {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.tabela-anual::-webkit-scrollbar { display: none; }
+.ta-hdr, .ta-row { min-width: 380px; }
+
+/* 4 ── Quadros DASN (Receita + Despesas): scroll horizontal */
+.lc-quadro {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.lc-quadro::-webkit-scrollbar { display: none; }
+.lc-q-linha { min-width: 360px; }
+
+/* 5 ── Gráfico de barras anual: mais espaço em telas pequenas */
+@media (max-width: 380px) {
+  .grafico-barras { gap: 4px; }
+  .barra-grupo    { min-width: 30px; }
+  .barra          { width: 12px; }
+  .barra-mes      { font-size: .55rem; }
+}
+
+/* 6 ── Totais anuais: coluna única abaixo de 380px */
+@media (max-width: 380px) {
+  .anual-totais { grid-template-columns: 1fr; }
+  .anual-item   { padding: 10px 12px; }
+}
+
+/* ── Botão Imprimir ─────────────────────────────────────── */
+.sh-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.rel-print-bar {
+  display: flex;
+  justify-content: flex-end;
+}
+.btn-print {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  background: var(--brown);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-md);
+  font-size: .8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--t), transform var(--t);
+  white-space: nowrap;
+}
+.btn-print:active { background: var(--brown-dark); transform: scale(.96); }
+.btn-print-sm {
+  padding: 6px 10px;
+  font-size: .75rem;
+  border-radius: var(--r-sm);
+}
+
+/* ════════════════════════════════════════════════════════════
+   @MEDIA PRINT — formatação para impressão
+   ════════════════════════════════════════════════════════════ */
+@media print {
+  /* Esconder chrome do app */
+  .hdr, .nav, .tab-hdr,
+  .rel-tipo-nav, .rel-print-bar, .sh-tools .btn-print,
+  .teto-alertas, .ano-selector-inline,
+  .btn-abrir-import { display: none !important; }
+
+  /* Resetar container */
+  body, html { height: auto !important; overflow: visible !important; font-size: 11pt; }
+  .shell, .main, .tab-financeiro { height: auto !important; overflow: visible !important; }
+  .relatorio-wrap {
+    padding: 0 !important;
+    gap: 10pt !important;
+  }
+
+  /* Cards sem sombra, sem quebra interna */
+  .sheet-card {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    break-inside: avoid;
+    margin-bottom: 8pt;
+  }
+
+  /* Tabelas: mostrar sem scroll */
+  .lc-quadro, .tabela-anual {
+    overflow: visible !important;
+  }
+  .lc-q-linha  { min-width: auto !important; }
+  .ta-hdr, .ta-row { min-width: auto !important; }
+
+  /* Livro Caixa: restaurar grid de 4 colunas no papel */
+  .lc-hdr {
+    display: grid !important;
+    grid-template-columns: 56px 1fr 80px 64px !important;
+  }
+  .lc-row {
+    display: grid !important;
+    grid-template-columns: 56px 1fr 80px 64px !important;
+    flex-wrap: unset !important;
+  }
+  .lc-col-data, .lc-col-desc, .lc-col-cat, .lc-col-val {
+    order: unset !important;
+    flex: unset !important;
+    padding-top: 0 !important;
+  }
+
+  /* Barra de teto sem alertas visuais desnecessários */
+  .teto-card { border-left: 2px solid #333 !important; }
+
+  /* Garantir cores legíveis no papel */
+  .c-green { color: #1a7a45 !important; -webkit-print-color-adjust: exact; }
+  .c-red   { color: #c41c1c !important; -webkit-print-color-adjust: exact; }
+  .c-purple { color: #6d28d9 !important; -webkit-print-color-adjust: exact; }
 }
 </style>

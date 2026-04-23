@@ -88,7 +88,10 @@
                     <strong class="usage-val">{{ fmtQ(ins.total, ins.unidade) }}</strong>
                   </div>
                   <div class="chart-bar-bg">
-                    <div class="chart-bar-fill" :style="{ width: '100%', opacity: 0.15, backgroundColor: 'var(--gold)' }"></div>
+                    <div class="chart-bar-fill" :style="{
+                      width: (ins.total / stats.consumoInsumos[0].total * 100).toFixed(1) + '%',
+                      backgroundColor: avatarColor(ins.nome)
+                    }"></div>
                   </div>
                 </div>
               </div>
