@@ -236,7 +236,7 @@
     <template v-else-if="abaAtiva === 'mensal'">
       <div class="relatorio-wrap">
         <div class="rel-print-bar">
-          <button class="btn-print" @click="imprimir"><i class="fas fa-print"></i> Imprimir relatório</button>
+          <button class="btn-print" @click="imprimir"><i class="fas fa-print"></i> Imprimir tela</button>
         </div>
         <!-- Resumo por banco -->
         <section class="sheet-card">
@@ -328,7 +328,7 @@
     <template v-else-if="abaAtiva === 'anual'">
       <div class="relatorio-wrap">
         <div class="rel-print-bar">
-          <button class="btn-print" @click="imprimir"><i class="fas fa-print"></i> Imprimir relatório</button>
+          <button class="btn-print" @click="imprimir"><i class="fas fa-print"></i> Imprimir tela</button>
         </div>
         <!-- Seletor de ano -->
         <div class="ano-selector-inline">
@@ -396,12 +396,11 @@
             <div class="section-head"><h4><i class="fas fa-table"></i> Detalhamento mensal</h4></div>
             <div class="tabela-anual">
               <div class="ta-hdr">
-                <span>Mês</span><span>Receita</span><span>Saída op.</span><span>Saldo</span>
+                <span>Mês</span><span>Receita MEI</span><span>Saldo op.</span>
               </div>
               <div v-for="item in relatorioAnualMeses" :key="item.mes_ref" class="ta-row">
                 <span class="ta-mes">{{ item.mes_ref }}</span>
                 <span class="c-green">{{ R$(item.receitas_mei) }}</span>
-                <span class="c-red">{{ R$(item.saidas_operacionais) }}</span>
                 <span :class="item.saldo_operacional >= 0 ? 'c-green' : 'c-red'">{{ R$(item.saldo_operacional) }}</span>
               </div>
             </div>
@@ -475,12 +474,26 @@
             <div class="sheet-body">
               <div class="section-head">
                 <h4><i class="fas fa-calendar-days"></i> Livro Caixa MEI · Mensal</h4>
-                <div class="sh-tools">
-                  <select class="filtro-select sm" v-model="relMensalMesRef">
-                    <option v-for="m in mesesRelatorio" :key="m.value" :value="m.value">{{ m.label }}</option>
-                  </select>
-                  <button class="btn-print btn-print-sm" @click="imprimir" title="Imprimir"><i class="fas fa-print"></i></button>
+              </div>
+
+              <div class="report-config-box">
+                <div class="report-config-grid">
+                  <div class="fg" style="margin:0">
+                    <label class="label">Competência</label>
+                    <select class="input sm" v-model="relMensalMesRef">
+                      <option v-for="m in mesesRelatorio" :key="m.value" :value="m.value">{{ m.label }}</option>
+                    </select>
+                  </div>
+                  <div class="fg" style="margin:0; display: flex; align-items: center">
+                    <label class="incluir-pessoal-toggle-modern">
+                      <input type="checkbox" v-model="incluirRendasPessoais" />
+                      <span>Incluir rendas pessoais</span>
+                    </label>
+                  </div>
                 </div>
+                <button class="btn-gerar-large" @click="gerarDocLivroCaixa">
+                  <i class="fas fa-file-pdf"></i> Gerar Livro Caixa (PDF)
+                </button>
               </div>
 
               <!-- Cabeçalho formal -->
@@ -496,17 +509,13 @@
                 <!-- Tabela Receitas -->
                 <div class="lc-section-label entrada">↑ RECEITAS / ENTRADAS</div>
                 <div class="lc-tabela">
-                  <div class="lc-hdr">
-                    <span class="lc-col-data">Data</span>
-                    <span class="lc-col-desc">Descrição / Origem</span>
-                    <span class="lc-col-cat">Tipo</span>
-                    <span class="lc-col-val">Valor</span>
-                  </div>
                   <div v-for="item in lancMensalEntradas" :key="item.id" class="lc-row entrada-row">
-                    <span class="lc-col-data">{{ formatarData(item.data) }}</span>
-                    <span class="lc-col-desc">{{ item.descricao }}</span>
-                    <span class="lc-col-cat"><span class="lc-badge lc-entrada">{{ item.categoria }}</span></span>
-                    <span class="lc-col-val c-green">{{ R$(item.valor) }}</span>
+                    <div class="lc-col-top">
+                      <span class="lc-badge lc-entrada">{{ item.categoria }}</span>
+                      <span class="lc-col-val c-green">{{ R$(item.valor) }}</span>
+                    </div>
+                    <div class="lc-col-desc">{{ item.descricao }}</div>
+                    <div class="lc-col-data">{{ formatarData(item.data) }}</div>
                   </div>
                   <div v-if="!lancMensalEntradas.length" class="lc-vazio">Nenhuma receita neste mês.</div>
                   <div class="lc-total">
@@ -520,10 +529,12 @@
                   <div class="lc-section-label pessoal">↑ OUTRAS ENTRADAS (não compõem faturamento MEI)</div>
                   <div class="lc-tabela">
                     <div v-for="item in lancMensalNaoMei" :key="item.id" class="lc-row pessoal-row">
-                      <span class="lc-col-data">{{ formatarData(item.data) }}</span>
-                      <span class="lc-col-desc">{{ item.descricao }}</span>
-                      <span class="lc-col-cat"><span class="lc-badge lc-pessoal">{{ item.categoria }}</span></span>
-                      <span class="lc-col-val c-purple">{{ R$(item.valor) }}</span>
+                      <div class="lc-col-top">
+                        <span class="lc-badge lc-pessoal">{{ item.categoria }}</span>
+                        <span class="lc-col-val c-purple">{{ R$(item.valor) }}</span>
+                      </div>
+                      <div class="lc-col-desc">{{ item.descricao }}</div>
+                      <div class="lc-col-data">{{ formatarData(item.data) }}</div>
                     </div>
                     <div class="lc-total pessoal-total">
                       <span class="lc-total-label">Total Outras Entradas</span>
@@ -536,10 +547,12 @@
                 <div class="lc-section-label saida">↓ DESPESAS OPERACIONAIS</div>
                 <div class="lc-tabela">
                   <div v-for="item in lancMensalOperacional" :key="item.id" class="lc-row saida-row">
-                    <span class="lc-col-data">{{ formatarData(item.data) }}</span>
-                    <span class="lc-col-desc">{{ item.descricao }}</span>
-                    <span class="lc-col-cat"><span class="lc-badge lc-saida">{{ item.categoria }}</span></span>
-                    <span class="lc-col-val c-red">{{ R$(Math.abs(item.valor)) }}</span>
+                    <div class="lc-col-top">
+                      <span class="lc-badge lc-saida">{{ item.categoria }}</span>
+                      <span class="lc-col-val c-red">{{ R$(Math.abs(item.valor)) }}</span>
+                    </div>
+                    <div class="lc-col-desc">{{ item.descricao }}</div>
+                    <div class="lc-col-data">{{ formatarData(item.data) }}</div>
                   </div>
                   <div v-if="!lancMensalOperacional.length" class="lc-vazio">Nenhuma despesa operacional.</div>
                   <div class="lc-total">
@@ -616,12 +629,26 @@
             <div class="sheet-body">
               <div class="section-head">
                 <h4><i class="fas fa-file-invoice-dollar"></i> Declaração Anual · DASN-SIMEI</h4>
-                <div class="sh-tools">
-                  <select class="filtro-select sm" v-model="anoRelAnual">
-                    <option v-for="a in anosDisponiveis" :key="a" :value="a">{{ a }}</option>
-                  </select>
-                  <button class="btn-print btn-print-sm" @click="imprimir" title="Imprimir"><i class="fas fa-print"></i></button>
+              </div>
+
+              <div class="report-config-box">
+                <div class="report-config-grid">
+                  <div class="fg" style="margin:0">
+                    <label class="label">Ano-calendário</label>
+                    <select class="input sm" v-model="anoRelAnual">
+                      <option v-for="a in anosDisponiveis" :key="a" :value="a">{{ a }}</option>
+                    </select>
+                  </div>
+                  <div class="fg" style="margin:0; display: flex; align-items: center">
+                    <label class="incluir-pessoal-toggle-modern">
+                      <input type="checkbox" v-model="incluirRendasPessoais" />
+                      <span>Incluir rendas pessoais</span>
+                    </label>
+                  </div>
                 </div>
+                <button class="btn-gerar-large" @click="gerarDocDASN">
+                  <i class="fas fa-file-arrow-down"></i> Gerar DASN-SIMEI Oficial
+                </button>
               </div>
 
               <div class="lc-cabecalho">
@@ -631,40 +658,37 @@
               </div>
 
               <!-- Quadro 1: Receita Bruta MEI -->
-              <div class="lc-section-label entrada">QUADRO 1 — RECEITA BRUTA MEI (art. 18-A LC 123/2006)</div>
+              <div class="lc-section-label entrada">QUADRO 1 — RECEITA BRUTA MEI</div>
               <div class="lc-quadro">
                 <div class="lc-q-linha hdr">
-                  <span>Mês de competência</span>
-                  <span>Receita de Vendas/Serviços</span>
-                  <span>Outras Receitas</span>
-                  <span>Total MEI</span>
+                  <span>Mês</span>
+                  <span>Receita MEI</span>
+                  <span>Acumulado</span>
                 </div>
-                <div v-for="item in relatorioAnualMeses" :key="item.mes_ref" class="lc-q-linha">
+                <div v-for="(item, idx) in relatorioAnualMeses" :key="item.mes_ref" class="lc-q-linha">
                   <span class="lc-q-mes">{{ item.mes_ref }}</span>
                   <span class="c-green">{{ R$(item.receitas_mei) }}</span>
-                  <span>{{ R$(0) }}</span>
-                  <span class="c-green fw700">{{ R$(item.receitas_mei) }}</span>
+                  <span class="c-green">{{ R$(relatorioAnualMeses.slice(0, idx+1).reduce((a,i)=>a+i.receitas_mei,0)) }}</span>
                 </div>
                 <div v-if="!relatorioAnualMeses.length" class="lc-vazio">Sem dados para o ano.</div>
                 <div class="lc-q-linha total">
-                  <span>TOTAL ANUAL</span>
+                  <span>TOTAL</span>
                   <span class="c-green fw700">{{ R$(totalAnual.receitas) }}</span>
-                  <span>{{ R$(0) }}</span>
                   <span class="c-green fw700">{{ R$(totalAnual.receitas) }}</span>
                 </div>
               </div>
 
               <!-- Quadro 2: Outras entradas (informativo) -->
-              <div class="lc-section-label pessoal" v-if="totalAnual.outras_entradas">
-                INFORMATIVO — ENTRADAS NÃO-MEI (excluídas do faturamento tributável)
+              <div class="lc-section-label pessoal" v-if="incluirRendasPessoais && totalAnual.outras_entradas">
+                INFORMATIVO — ENTRADAS NÃO-MEI
               </div>
-              <div class="lc-quadro" v-if="totalAnual.outras_entradas">
+              <div class="lc-quadro" v-if="incluirRendasPessoais && totalAnual.outras_entradas">
                 <div class="lc-q-linha hdr">
-                  <span>Descrição</span>
+                  <span>Tipo</span>
                   <span>Total {{ anoRelAnual }}</span>
                 </div>
                 <div class="lc-q-linha">
-                  <span>Renda Pessoal / Outras entradas não-MEI</span>
+                  <span class="lc-q-mes">Renda pessoal</span>
                   <span class="c-purple fw700">{{ R$(totalAnual.outras_entradas) }}</span>
                 </div>
               </div>
@@ -674,21 +698,18 @@
               <div class="lc-quadro">
                 <div class="lc-q-linha hdr">
                   <span>Mês</span>
-                  <span>Despesas operacionais</span>
-                  <span>Retiradas pessoais</span>
-                  <span>Total saídas</span>
+                  <span>Op.</span>
+                  <span>Pessoal</span>
                 </div>
                 <div v-for="item in relatorioAnualMeses" :key="item.mes_ref" class="lc-q-linha">
                   <span class="lc-q-mes">{{ item.mes_ref }}</span>
                   <span class="c-red">{{ R$(item.saidas_operacionais) }}</span>
                   <span>{{ R$(item.saidas_pessoais) }}</span>
-                  <span class="fw700">{{ R$(item.saidas_operacionais + item.saidas_pessoais) }}</span>
                 </div>
                 <div class="lc-q-linha total">
-                  <span>TOTAL ANUAL</span>
+                  <span>TOTAL</span>
                   <span class="c-red fw700">{{ R$(totalAnual.operacional) }}</span>
                   <span class="fw700">{{ R$(totalAnual.pessoal) }}</span>
-                  <span class="fw700">{{ R$(totalAnual.operacional + totalAnual.pessoal) }}</span>
                 </div>
               </div>
 
@@ -699,7 +720,7 @@
                   <span>Receita Bruta MEI (faturamento tributável)</span>
                   <strong class="c-green">{{ R$(totalAnual.receitas) }}</strong>
                 </div>
-                <div class="lra-linha" v-if="totalAnual.outras_entradas">
+                <div class="lra-linha" v-if="incluirRendasPessoais && totalAnual.outras_entradas">
                   <span>Outras entradas não-MEI (informativo)</span>
                   <strong class="c-purple">{{ R$(totalAnual.outras_entradas) }}</strong>
                 </div>
@@ -782,8 +803,8 @@ import ImportadorBancoBrasil from '../components/ImportadorBancoBrasil.vue'
 import EditarCategoriaModal from '../components/EditarCategoriaModal.vue'
 import { useStore } from '../store.js'
 import { R$ } from '../utils.js'
-import { gerarLivroCaixa, gerarDASNSIMEI } from '../composables/Usegerardocumento.js'
 import { useConfirm } from '../composables/useConfirm.js'
+import { gerarLivroCaixa, gerarDASNSIMEI } from '../composables/useGerarDocumento.js'
 
 const s = useStore()
 const confirm = useConfirm()
@@ -1057,6 +1078,7 @@ const nomeContribuinte = 'MEI — Conta PagBank / Itaú'
 
 const relTipo = ref('mensal')
 const anoRelatorioAtual = computed(() => anoRelAnual.value)
+const incluirRendasPessoais = ref(false)
 
 // Meses disponíveis como { value, label } para o select do relatório mensal
 const mesesRelatorio = computed(() =>
@@ -1134,39 +1156,35 @@ const acumuladoAteMes = computed(() => {
   }
 })
 
+// ── Geração de documentos oficiais ──────────────────────────────
+function gerarDocLivroCaixa() {
+  gerarLivroCaixa({
+    mes_ref:  relMensalMesRef.value,
+    empresa:  s.company,
+    entradas: lancMensalEntradas.value,
+    naoMei:   lancMensalNaoMei.value,
+    saidas:   lancMensalOperacional.value,
+    totais:   dadosRelMensal.value || {},
+    acumulado: acumuladoAteMes.value,
+    incluirNaoMei: incluirRendasPessoais.value
+  })
+}
+
+function gerarDocDASN() {
+  gerarDASNSIMEI({
+    ano:      anoRelAnual.value,
+    empresa:  s.company,
+    meses:    relatorioAnualMeses.value,
+    totais:   totalAnual.value,
+    tetoAnual: TETO_MEI_ANUAL,
+    pctTeto:  percentualTeto.value,
+    incluirNaoMei: incluirRendasPessoais.value
+  })
+}
+
 onMounted(() => s.carregarFinanceiro())
 
-function imprimir() {
-  if (abaAtiva.value === 'relatorios') {
-    if (relTipo.value === 'mensal') {
-      if (!dadosRelMensal.value) {
-        s.notify('Não há dados para gerar o Livro Caixa deste mês.', 'warning')
-        return
-      }
-      gerarLivroCaixa({
-        mes_ref: relMensalMesRef.value,
-        empresa: s.company,
-        entradas: lancMensalEntradas.value,
-        naoMei: lancMensalNaoMei.value,
-        saidas: lancMensalOperacional.value,
-        totais: dadosRelMensal.value,
-        acumulado: acumuladoAteMes.value
-      })
-    } else {
-      gerarDASNSIMEI({
-        ano: anoRelAnual.value,
-        empresa: s.company,
-        meses: relatorioAnualMeses.value,
-        totais: totalAnual.value,
-        tetoAnual: TETO_MEI_ANUAL,
-        pctTeto: percentualTeto.value
-      })
-    }
-    return
-  }
-
-  window.print()
-}
+function imprimir() { window.print() }
 </script>
 
 <style scoped>
@@ -1598,11 +1616,11 @@ function imprimir() {
 
 /* Tabela anual */
 .tabela-anual { display: flex; flex-direction: column; }
-.ta-hdr { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 4px; padding: 6px 0 8px; font-size: .68rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; border-bottom: 1px solid var(--border); }
-.ta-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 4px; padding: 8px 0; font-size: .8rem; border-bottom: 1px solid var(--border); }
+.ta-hdr { display: grid; grid-template-columns: 58px 1fr 1fr; gap: 4px; padding: 6px 0 8px; font-size: .66rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; border-bottom: 1px solid var(--border); }
+.ta-row { display: grid; grid-template-columns: 58px 1fr 1fr; gap: 4px; padding: 8px 0; font-size: .8rem; border-bottom: 1px solid var(--border); }
 .ta-row:last-child { border-bottom: none; }
-.ta-mes { font-weight: 600; color: var(--text); font-family: var(--font); }
-.ta-row span { font-family: var(--mono); font-size: .78rem; }
+.ta-mes { font-weight: 600; color: var(--text); font-family: var(--font); font-size: .75rem; }
+.ta-row span { font-family: var(--mono); font-size: .76rem; }
 
 .c-green { color: var(--green); }
 .c-red   { color: var(--red); }
@@ -1647,13 +1665,13 @@ function imprimir() {
 .teto-valor { font-family: var(--mono); font-size: 1.1rem; font-weight: 800; }
 .teto-pct { font-size: .7rem; color: var(--muted); margin-top: 2px; }
 
-.teto-barra-wrap { margin-bottom: 8px; }
+.teto-barra-wrap { margin-bottom: 6px; }
 .teto-barra-bg {
   position: relative;
-  height: 14px;
+  height: 12px;
   background: var(--cream-deep);
   border-radius: 99px;
-  overflow: visible;
+  overflow: hidden;
 }
 .teto-barra-fill {
   height: 100%;
@@ -1663,8 +1681,8 @@ function imprimir() {
 .teto-barra-fill.ok      { background: var(--green); }
 .teto-barra-fill.warning { background: #c2710c; }
 .teto-barra-fill.danger  { background: var(--red); }
-.teto-barra-mark { margin-top: 4px; text-align: right; }
-.teto-falta { font-size: .7rem; color: var(--muted); font-weight: 600; }
+.teto-barra-mark { margin-top: 5px; text-align: right; padding-right: 2px; }
+.teto-falta { font-size: .68rem; color: var(--muted); font-weight: 600; display: inline-block; }
 
 .teto-alertas { margin-top: 4px; }
 .teto-alerta {
@@ -1685,20 +1703,20 @@ function imprimir() {
   background: var(--cream);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-  padding: 10px 12px;
-  margin-bottom: 14px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 .lc-cb-linha {
   display: flex;
-  gap: 8px;
-  font-size: .78rem;
-  align-items: baseline;
+  flex-direction: column;
+  gap: 1px;
+  font-size: .76rem;
 }
-.lc-cb-linha span { color: var(--muted); min-width: 90px; flex-shrink: 0; }
-.lc-cb-linha strong { color: var(--text); font-size: .8rem; }
+.lc-cb-linha span { color: var(--muted); font-size: .64rem; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; }
+.lc-cb-linha strong { color: var(--text); font-size: .78rem; word-break: break-word; line-height: 1.3; }
 
 .lc-section-label {
   font-size: .65rem;
@@ -1716,32 +1734,26 @@ function imprimir() {
 .lc-section-label:not(.entrada):not(.saida):not(.pessoal) { background: var(--cream); color: var(--brown-mid); }
 
 .lc-tabela { margin-bottom: 4px; }
-.lc-hdr {
-  display: grid;
-  grid-template-columns: 56px 1fr 80px 64px;
-  gap: 4px;
-  padding: 6px 0 4px;
-  font-size: .62rem;
-  font-weight: 800;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: .4px;
-  border-bottom: 1px solid var(--border);
-}
+.lc-hdr { display: none; } /* hidden — using card layout instead */
 .lc-row {
-  display: grid;
-  grid-template-columns: 56px 1fr 80px 64px;
-  gap: 4px;
-  padding: 7px 0;
-  font-size: .78rem;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 0;
   border-bottom: 1px dashed var(--border);
-  align-items: start;
 }
 .lc-row:last-of-type { border-bottom: none; }
-.lc-col-data { color: var(--muted); font-size: .72rem; padding-top: 1px; }
-.lc-col-desc { color: var(--text); word-break: break-word; line-height: 1.35; }
+/* top line: badge + valor */
+.lc-row .lc-col-cat  { order: 1; }
+.lc-row .lc-col-val  { order: 1; }
+.lc-row .lc-col-desc { order: 2; color: var(--text); font-size: .8rem; word-break: break-word; line-height: 1.35; }
+.lc-row .lc-col-data { order: 3; color: var(--muted); font-size: .68rem; font-weight: 600; }
+/* use flexbox row for first line via pseudo wrapper — handle in template instead */
+.lc-col-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.lc-col-data { color: var(--muted); font-size: .68rem; font-weight: 600; }
+.lc-col-desc { color: var(--text); word-break: break-word; line-height: 1.35; font-size: .8rem; }
 .lc-col-cat  { }
-.lc-col-val  { text-align: right; font-family: var(--mono); font-size: .8rem; font-weight: 600; }
+.lc-col-val  { font-family: var(--mono); font-size: .86rem; font-weight: 700; flex-shrink: 0; }
 .lc-badge {
   display: inline-block;
   padding: 2px 6px;
@@ -1824,7 +1836,7 @@ function imprimir() {
 }
 .lc-q-linha {
   display: grid;
-  grid-template-columns: 80px repeat(3, 1fr);
+  grid-template-columns: 62px 1fr 1fr;
   gap: 4px;
   padding: 7px 0;
   font-size: .76rem;
@@ -1953,23 +1965,18 @@ function imprimir() {
   }
 }
 
-/* 3 ── Tabela anual (detalhamento mensal): scroll horizontal */
+/* 3 ── Tabela anual (detalhamento mensal): 3 colunas, sem scroll */
 .tabela-anual {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  width: 100%;
 }
-.tabela-anual::-webkit-scrollbar { display: none; }
-.ta-hdr, .ta-row { min-width: 380px; }
 
-/* 4 ── Quadros DASN (Receita + Despesas): scroll horizontal */
+/* 4 ── Quadros DASN (Receita + Despesas): 3 colunas, sem scroll */
 .lc-quadro {
-  overflow-x: auto;
+  width: 100%;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
 .lc-quadro::-webkit-scrollbar { display: none; }
-.lc-q-linha { min-width: 360px; }
 
 /* 5 ── Gráfico de barras anual: mais espaço em telas pequenas */
 @media (max-width: 380px) {
@@ -2017,6 +2024,78 @@ function imprimir() {
   font-size: .75rem;
   border-radius: var(--r-sm);
 }
+
+/* Botão gerar documento oficial */
+.btn-gerar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: #003580;
+  color: #fff;
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: .75rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--t), transform var(--t);
+  flex-shrink: 0;
+}
+.btn-gerar:active { background: #002060; transform: scale(.96); }
+
+.incluir-pessoal-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.report-config-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.report-config-grid {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.report-config-grid .fg { margin: 0; flex-shrink: 0; }
+.incluir-pessoal-toggle-modern {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+.btn-gerar-large {
+  width: 100%;
+  padding: 9px;
+  background: #003580;
+  color: #fff;
+  border: none;
+  border-radius: var(--r-md);
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all var(--t);
+}
+.btn-gerar-large:active { background: #002060; transform: scale(0.98); }
 
 /* ════════════════════════════════════════════════════════════
    @MEDIA PRINT — formatação para impressão

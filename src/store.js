@@ -23,7 +23,13 @@ export const useStore = defineStore('choco', () => {
   const company = ref({
     nome: 'ChocoBete Produção',
     slogan: 'Registro de Produção',
-    posicao_etiqueta: 0
+    posicao_etiqueta: 0,
+    razao_social: '',
+    cnpj: '',
+    cpf: '',
+    municipio: '',
+    uf: '',
+    cnae: ''
   })
   const googleDriveConfigured = computed(() => isGoogleDriveBackupConfigured())
 

@@ -25,9 +25,34 @@
         <label class="label">Slogan</label>
         <input v-model="cfg.slogan" class="input" placeholder="Ex: Feito com amor" />
       </div>
-      <div class="fg">
-        <label class="label">CNPJ (opcional)</label>
-        <input v-model="cfg.cnpj" class="input" placeholder="00.000.000/0000-00" />
+      <div class="grid-2">
+        <div class="fg">
+          <label class="label">Razão Social</label>
+          <input v-model="cfg.razao_social" class="input" placeholder="Nome empresarial" />
+        </div>
+        <div class="fg">
+          <label class="label">CNPJ</label>
+          <input v-model="cfg.cnpj" class="input" placeholder="00.000.000/0000-00" />
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="fg">
+          <label class="label">CPF do Titular</label>
+          <input v-model="cfg.cpf" class="input" placeholder="000.000.000-00" />
+        </div>
+        <div class="fg">
+          <label class="label">CNAE Principal</label>
+          <input v-model="cfg.cnae" class="input" placeholder="Ex: 1091-1/01" />
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="fg">
+          <label class="label">Município / UF</label>
+          <div class="input-group-row">
+            <input v-model="cfg.municipio" class="input" style="flex:3" placeholder="Cidade" />
+            <input v-model="cfg.uf" class="input" style="flex:1" placeholder="UF" maxlength="2" />
+          </div>
+        </div>
       </div>
 
       <div class="settings-section"><i class="fas fa-building-columns"></i> Contas Financeiras</div>
@@ -303,4 +328,5 @@ watch(() => s.modal?.id, (modalId) => {
 .conta-card { padding: 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg); }
 .conta-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; color: var(--brown-dark); }
 .conta-remove { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--red-bg); color: var(--red); display: flex; align-items: center; justify-content: center; }
+.input-group-row { display: flex; gap: 8px; }
 </style>

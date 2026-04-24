@@ -287,9 +287,10 @@ export function gerarLivroCaixa({
   naoMei,
   saidas,
   totais,
-  acumulado
+  acumulado,
+  incluirNaoMei = true
 }) {
-  const nomeEmpresa = empresa?.nome || 'Microempreendedor Individual'
+  const nomeEmpresa = empresa?.razao_social || empresa?.nome || 'Microempreendedor Individual'
   const [mesSel, anoSel] = (mes_ref || '').split('/')
   const nomeMes = mesSel
     ? new Date(Number(anoSel), Number(mesSel) - 1, 1)
@@ -309,7 +310,8 @@ export function gerarLivroCaixa({
     linhas.push({ seq: seq.n, data: item.data, desc: item.descricao, cat: item.categoria, tipo, val, saldo })
   }
 
-  const ordenados = [...entradas, ...naoMei, ...saidas]
+  const listaEntradas = incluirNaoMei ? [...entradas, ...naoMei] : entradas
+  const ordenados = [...listaEntradas, ...saidas]
     .sort((a, b) => (a.data || '').localeCompare(b.data || ''))
 
   ordenados.forEach(it => {
@@ -384,9 +386,9 @@ export function gerarLivroCaixa({
     </tr>
     <tr>
       <td><strong>${escHtml(nomeEmpresa)}</strong></td>
-      <td><em style="color:#777">_____._____.___/____-__</em></td>
+      <td><strong>${escHtml(empresa?.cnpj || empresa?.cpf || 'Não informado')}</strong></td>
       <td class="cen"><strong>${mes_ref || ''}</strong></td>
-      <td>Produção e venda de alimentos artesanais</td>
+      <td>${escHtml(empresa?.cnae || 'Produção de alimentos')}</td>
     </tr>
     <tr>
       <th colspan="2">Endereço do Estabelecimento</th>
@@ -395,8 +397,8 @@ export function gerarLivroCaixa({
     </tr>
     <tr>
       <td colspan="2"><em style="color:#777">Preencher conforme CCMEI</em></td>
-      <td><em style="color:#777">_____________/__</em></td>
-      <td>1091-1/01 – Fab. de produtos de panificação industrial</td>
+      <td><strong>${escHtml(empresa?.municipio || '—')} / ${escHtml(empresa?.uf || '—')}</strong></td>
+      <td>${escHtml(empresa?.cnae || '1091-1/01')}</td>
     </tr>
   </table>
 
@@ -421,7 +423,7 @@ export function gerarLivroCaixa({
       ${linhasHTML}
       <tr class="subtotal">
         <td colspan="3" style="text-align:right">TOTAL DO MÊS</td>
-        <td class="num">${BRL(totalEntradas)}</td>
+        <td class="num">${BRL(incluirNaoMei ? totalEntradas : totais.receitas_mei)}</td>
         <td class="num">${BRL(totalSaidas)}</td>
         <td class="num">${saldoFinal < 0 ? `<span style="color:#c41c1c">(${BRL(Math.abs(saldoFinal))})</span>` : BRL(saldoFinal)}</td>
       </tr>
@@ -435,7 +437,7 @@ export function gerarLivroCaixa({
       <span>Receita Bruta MEI (faturamento tributável para fins de LC 123/2006)</span>
       <strong>${BRL(totais.receitas_mei || 0)}</strong>
     </div>
-    ${totais.outras_entradas_nao_mei ? `
+    ${incluirNaoMei && totais.outras_entradas_nao_mei ? `
     <div class="resumo-linha">
       <span>Outras entradas não-MEI (rendimentos pessoais — não compõem faturamento tributável)</span>
       <strong>${BRL(totais.outras_entradas_nao_mei)}</strong>
@@ -531,9 +533,10 @@ export function gerarDASNSIMEI({
   meses,
   totais,
   tetoAnual,
-  pctTeto
+  pctTeto,
+  incluirNaoMei = true
 }) {
-  const nomeEmpresa = empresa?.nome || 'Microempreendedor Individual'
+  const nomeEmpresa = empresa?.razao_social || empresa?.nome || 'Microempreendedor Individual'
   const dentroTeto  = (totais.receitas || 0) <= (tetoAnual || 81000)
   const statusTeto  = pctTeto >= 100 ? 'status-err' : pctTeto >= 90 ? 'status-warn' : 'status-ok'
   const statusTexto = pctTeto >= 100
@@ -567,15 +570,6 @@ export function gerarDASNSIMEI({
       <td class="num">${BRL(0)}</td>
       <td class="num">${BRL(0)}</td>
       <td class="num"><strong>${m.receitas_mei > 0 ? BRL(m.receitas_mei) : '—'}</strong></td>
-    </tr>`).join('')
-
-  const linhasQ2 = mesesCompletos.map((m, i) => `
-    <tr ${i % 2 === 1 ? 'style="background:#f9f9f9"' : ''}>
-      <td>${m.nome}</td>
-      <td class="num">${m.saidas_op > 0 ? BRL(m.saidas_op) : '—'}</td>
-      <td class="num">${m.saidas_pes > 0 ? BRL(m.saidas_pes) : '—'}</td>
-      <td class="num"><strong>${(m.saidas_op + m.saidas_pes) > 0 ? BRL(m.saidas_op + m.saidas_pes) : '—'}</strong></td>
-      <td class="num ${m.saldo_op >= 0 ? 'status-ok' : 'status-err'}">${BRL(m.saldo_op)}</td>
     </tr>`).join('')
 
   const html = `<!DOCTYPE html>
@@ -639,7 +633,7 @@ export function gerarDASNSIMEI({
     </tr>
     <tr>
       <td><strong>${escHtml(nomeEmpresa)}</strong></td>
-      <td><em style="color:#777">__.___.___/____-__</em></td>
+      <td><strong>${escHtml(empresa?.cnpj || '—')}</strong></td>
       <td class="cen"><strong>${ano}</strong></td>
       <td class="cen"><em style="color:#777">__/__/____</em></td>
     </tr>
@@ -649,8 +643,8 @@ export function gerarDASNSIMEI({
       <th>Situação da Empresa</th>
     </tr>
     <tr>
-      <td colspan="2"><em style="color:#777">___.___.___-__</em></td>
-      <td>1091-1/01</td>
+      <td colspan="2"><strong>${escHtml(empresa?.cpf || '—')}</strong></td>
+      <td><strong>${escHtml(empresa?.cnae || '1091-1/01')}</strong></td>
       <td>Ativa</td>
     </tr>
   </table>
@@ -716,41 +710,14 @@ export function gerarDASNSIMEI({
     </em>
   </div>
 
-  <!-- ── Seção 4: Quadro 2 – Despesas ── -->
-  <div class="quadro-titulo" style="margin-top:10pt">Seção 4 — Quadro 2: Despesas e Resultado do Exercício (informativo)</div>
-  <div class="quadro-subtitulo">
-    Este quadro não integra a DASN-SIMEI oficial, mas é exigido pelo Livro Caixa (Res. CGSN 140/2018) e auxilia no controle de gestão.
-  </div>
-  <table class="tabela">
-    <thead>
-      <tr>
-        <th style="width:14%">Mês</th>
-        <th style="width:22%">Despesas Operacionais (R$)</th>
-        <th style="width:22%">Retiradas Pessoais / Pró-labore (R$)</th>
-        <th style="width:20%">Total Saídas (R$)</th>
-        <th style="width:22%">Resultado Operacional (R$)</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${linhasQ2}
-      <tr class="total">
-        <td><strong>TOTAL ANUAL</strong></td>
-        <td class="num"><strong>${BRL(totais.operacional || 0)}</strong></td>
-        <td class="num"><strong>${BRL(totais.pessoal || 0)}</strong></td>
-        <td class="num"><strong>${BRL((totais.operacional || 0) + (totais.pessoal || 0))}</strong></td>
-        <td class="num ${totais.saldo >= 0 ? 'status-ok' : 'status-err'}"><strong>${BRL(totais.saldo || 0)}</strong></td>
-      </tr>
-    </tbody>
-  </table>
-
-  <!-- ── Seção 5: Resultado Final ── -->
-  <div class="quadro-titulo" style="margin-top:10pt">Seção 5 — Resultado do Exercício ${ano} e Verificação do Teto MEI</div>
+  <!-- ── Seção 4: Resultado Final ── -->
+  <div class="quadro-titulo" style="margin-top:10pt">Seção 4 — Resultado do Exercício ${ano} e Verificação do Teto MEI</div>
   <div class="resumo-box">
     <div class="resumo-linha">
       <span><strong>Receita Bruta MEI Total (faturamento tributável)</strong></span>
       <strong>${BRL(totais.receitas || 0)}</strong>
     </div>
-    ${totais.outras_entradas ? `
+    ${incluirNaoMei && totais.outras_entradas ? `
     <div class="resumo-linha">
       <span>Outras entradas não-MEI (informativo — NÃO compõem faturamento)</span>
       <strong>${BRL(totais.outras_entradas)}</strong>
@@ -773,8 +740,8 @@ export function gerarDASNSIMEI({
     </div>
   </div>
 
-  <!-- ── Seção 6: Declaração ── -->
-  <div class="quadro-titulo" style="margin-top:12pt">Seção 6 — Declaração e Assinatura</div>
+  <!-- ── Seção 5: Declaração ── -->
+  <div class="quadro-titulo" style="margin-top:12pt">Seção 5 — Declaração e Assinatura</div>
   <div style="border:1.5px solid #003580;padding:8pt 10pt;font-size:8.5pt;line-height:1.7">
     <p>
       Declaro, sob as penas da lei, que as informações acima prestadas são a expressão da verdade, 
@@ -796,7 +763,7 @@ export function gerarDASNSIMEI({
       Assinatura do Microempreendedor Individual Titular
       <div style="margin-top:18pt">_____________________________________________</div>
       <div style="margin-top:4pt">${escHtml(nomeEmpresa)}</div>
-      <div style="margin-top:2pt;font-size:7pt">CPF: ___.___.___-__ · CNPJ: __.___.___/____-__</div>
+      <div style="margin-top:2pt;font-size:7pt">CPF: ${escHtml(empresa?.cpf || '—')} · CNPJ: ${escHtml(empresa?.cnpj || '—')}</div>
     </div>
   </div>
 
