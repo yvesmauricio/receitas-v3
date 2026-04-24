@@ -16,14 +16,15 @@ concurrency:
 
 jobs:
   build-and-deploy:
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true 
-      
     runs-on: ubuntu-latest
 
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+
+    # 👇 opcional (recomendado pra testar o futuro)
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       # 📥 Clona o repositório
@@ -58,6 +59,7 @@ jobs:
       # 📦 Envia build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
+
         with:
           path: ./dist
 
