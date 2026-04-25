@@ -6,10 +6,7 @@
       <div class="tab-hdr-top">
         <h2 class="tab-title"><i class="fas fa-money-check-dollar"></i> Financeiro</h2>
         <div class="hdr-actions">
-          <button class="btn-icon" :class="{ active: modoSelecao }" @click="toggleSelecao" title="Selecionar lançamentos">
-            <i class="fas" :class="modoSelecao ? 'fa-xmark' : 'fa-list-check'"></i>
-          </button>
-          <button v-if="abaAtiva === 'lancamentos' && s.financeiro.length" class="btn-icon btn-danger-soft" @click="handleLimparFinanceiro" title="Zerar todos os lançamentos">
+          <button v-if="abaAtiva === 'lancamentos' && s.financeiro.length" class="btn-icon btn-danger-soft" @click="mostrarExcluirBanco = !mostrarExcluirBanco" title="Excluir extrato por banco">
             <i class="fas fa-trash-can"></i>
           </button>
           <button class="btn-icon" @click="mostrarImportadores = !mostrarImportadores" title="Importar extratos">
@@ -21,10 +18,31 @@
         Consolidação PagBank + Itaú · PIX recebidos · Relatório MEI
       </p>
 
+      <!-- ── Painel excluir por banco ──────────────────── -->
+      <Transition name="fade-slide">
+        <div v-if="mostrarExcluirBanco" class="excluir-banco-panel">
+          <div class="excluir-banco-titulo"><i class="fas fa-trash-can"></i> Excluir extrato por banco</div>
+          <div class="excluir-banco-list">
+            <button v-for="b in bancosComLancamentos" :key="b.id" class="excluir-banco-btn" @click="handleExcluirPorBanco(b.id)">
+              <span class="eb-nome">{{ b.label }}</span>
+              <span class="eb-count">{{ b.count }} lançamento(s)</span>
+              <i class="fas fa-chevron-right eb-arrow"></i>
+            </button>
+            <button class="excluir-banco-btn excluir-todos" @click="handleExcluirPorBanco('todos')">
+              <span class="eb-nome">Excluir tudo</span>
+              <span class="eb-count">{{ s.financeiro.length }} lançamento(s)</span>
+              <i class="fas fa-chevron-right eb-arrow"></i>
+            </button>
+          </div>
+        </div>
+      </Transition>
+
       <!-- ── Navegação de abas ────────────────────────── -->
       <div class="aba-nav">
         <button v-for="aba in abas" :key="aba.id" class="aba-btn"
-          :class="{ active: abaAtiva === aba.id }" @click="abaAtiva = aba.id">
+          :class="{ active: abaAtiva === aba.id }"
+          :data-id="aba.id"
+          @click="abaAtiva = aba.id">
           <i :class="aba.icon"></i> {{ aba.label }}
         </button>
       </div>
@@ -181,6 +199,16 @@
           {{ todosSelecionados ? 'Desmarcar todos' : `Selecionar todos (${lancamentosFiltrados.length})` }}
         </button>
         <span v-if="selecionados.size" class="sel-count">{{ selecionados.size }} selecionados</span>
+        <button class="sel-fechar-btn" @click="toggleSelecao" title="Sair da seleção">
+          <i class="fas fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Barra discreta de ações da lista -->
+      <div v-if="!modoSelecao && lancamentosFiltrados.length" class="lista-acoes-bar">
+        <button class="btn-selecionar-sutil" @click="toggleSelecao">
+          <i class="fas fa-list-check"></i> Selecionar
+        </button>
       </div>
 
       <!-- Aviso de transferências internas -->
@@ -760,7 +788,6 @@
 
       </div>
     </template>
-
     <!-- ── Barra flutuante de ações em lote ── -->
     <Transition name="barra-lote">
       <div v-if="modoSelecao && selecionados.size" class="barra-lote">
@@ -811,6 +838,7 @@ const confirm = useConfirm()
 const lancamentoEmEdicao = ref(null)
 const mostrarImportadores = ref(false)
 const bancoImport = ref('pagbank')
+const mostrarExcluirBanco = ref(false)
 
 const abas = [
   { id: 'lancamentos', label: 'Lançamentos', icon: 'fas fa-list' },
@@ -1055,6 +1083,32 @@ async function handleLimparFinanceiro() {
   if (ok) await s.limparFinanceiro()
 }
 
+const bancosComLancamentos = computed(() => {
+  const config = [
+    { id: 'pagbank', label: 'PagBank' },
+    { id: 'itau',    label: 'Itaú' },
+    { id: 'bb',      label: 'BB' }
+  ]
+  return config
+    .map(b => ({ ...b, count: s.financeiro.filter(i => (i.banco || 'pagbank') === b.id).length }))
+    .filter(b => b.count > 0)
+})
+
+async function handleExcluirPorBanco(banco) {
+  const labels = { pagbank: 'PagBank', itau: 'Itaú', bb: 'BB', todos: 'todos os bancos' }
+  const count = banco === 'todos'
+    ? s.financeiro.length
+    : s.financeiro.filter(i => (i.banco || 'pagbank') === banco).length
+  const ok = await confirm.ask(
+    `Isso irá apagar permanentemente ${count} lançamento(s) de ${labels[banco] || banco}. Deseja continuar?`,
+    { title: 'Excluir Extrato', icon: 'fas fa-trash-can', confirmLabel: 'Apagar', type: 'danger' }
+  )
+  if (ok) {
+    await s.limparFinanceiroPorBanco(banco)
+    mostrarExcluirBanco.value = false
+  }
+}
+
 // ── Helpers ──
 function formatarData(dataIso) {
   if (!dataIso) return ''
@@ -1188,6 +1242,103 @@ function imprimir() { window.print() }
 </script>
 
 <style scoped>
+/* ── Painel excluir por banco ─────────────────────────────── */
+.excluir-banco-panel {
+  background: var(--red-bg);
+  border-bottom: 1px solid var(--red-dim);
+  padding: 10px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.excluir-banco-titulo {
+  font-size: .7rem;
+  font-weight: 800;
+  color: var(--red);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.excluir-banco-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.excluir-banco-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--red-dim);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  transition: all var(--t);
+}
+.excluir-banco-btn:active { background: var(--red-bg); }
+.excluir-banco-btn.excluir-todos {
+  border-color: var(--red);
+  background: #fff0f0;
+  color: var(--red);
+}
+.excluir-banco-btn.excluir-todos:active { background: #fde0e0; }
+.eb-nome { flex: 1; font-size: .84rem; font-weight: 700; }
+.eb-count { font-size: .72rem; color: var(--muted); font-weight: 500; }
+.excluir-banco-btn.excluir-todos .eb-count { color: var(--red); opacity: .75; }
+.eb-arrow { font-size: .65rem; color: var(--muted); flex-shrink: 0; }
+
+/* Transição painel excluir */
+.fade-slide-enter-active, .fade-slide-leave-active { transition: all .18s ease; }
+.fade-slide-enter-from, .fade-slide-leave-to { opacity: 0; transform: translateY(-6px); }
+
+/* ── Barra discreta de ações da lista ─── */
+.lista-acoes-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.btn-selecionar-sutil {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  background: transparent;
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 700;
+  transition: all var(--t);
+}
+.btn-selecionar-sutil:active {
+  background: var(--cream-deep);
+  color: var(--brown-mid);
+  border-color: var(--brown-mid);
+}
+.btn-selecionar-sutil i { font-size: .7rem; }
+
+/* ── Botão fechar seleção ─── */
+.sel-fechar-btn {
+  background: rgba(255,255,255,.12);
+  border: none;
+  color: rgba(255,255,255,.7);
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .85rem;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.sel-fechar-btn:active { background: rgba(255,255,255,.22); }
+
 .tab-financeiro { display: flex; flex-direction: column; width: 100%; }
 
 /* ── Cabeçalho ─── */

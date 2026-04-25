@@ -878,6 +878,28 @@ export const useStore = defineStore('choco', () => {
     }
   }
 
+  async function limparFinanceiroPorBanco(banco) {
+    loading.value = true
+    try {
+      if (banco === 'todos') {
+        await db.financeiro.clear()
+        financeiro.value = []
+        notify('Todo o histórico financeiro foi removido.')
+      } else {
+        const ids = financeiro.value
+          .filter(i => (i.banco || 'pagbank') === banco)
+          .map(i => i.id)
+        if (!ids.length) { notify('Nenhum lançamento encontrado para este banco.'); return }
+        await db.financeiro.bulkDelete(ids)
+        financeiro.value = financeiro.value.filter(i => (i.banco || 'pagbank') !== banco)
+        const labels = { pagbank: 'PagBank', itau: 'Itaú', bb: 'BB' }
+        notify(`Extrato ${labels[banco] || banco} removido — ${ids.length} lançamento(s) excluído(s).`)
+      }
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function reclassificarTodosFinanceiro() {
     // Reclassifica apenas lançamentos que não foram editados manualmente
     const todos = await db.financeiro.toArray()
@@ -1257,7 +1279,7 @@ export const useStore = defineStore('choco', () => {
     init, carregarProducoes, carregarFinanceiro, importarLancamentosFinanceiros,
     atualizarLancamentoFinanceiro, atualizarLancamentosEmLote,
     reclassificarTodosFinanceiro,
-    limparFinanceiro, getCustoTotal, getPrecoUnitarioInsumo, getLucroInfo, getPesoTotal,
+    limparFinanceiro, limparFinanceiroPorBanco, getCustoTotal, getPrecoUnitarioInsumo, getLucroInfo, getPesoTotal,
     expandirIngredientes,
     resumoFinanceiroPorMes, resumoFinanceiroCategorias, relatorioMensalMei, totalRecebidoAnoAtual,
     CATEGORIAS_MEI,
