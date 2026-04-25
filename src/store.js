@@ -29,7 +29,8 @@ export const useStore = defineStore('choco', () => {
     cpf: '',
     municipio: '',
     uf: '',
-    cnae: ''
+    cnae: '',
+    teto_mei_anual: 81000
   })
   const googleDriveConfigured = computed(() => isGoogleDriveBackupConfigured())
 

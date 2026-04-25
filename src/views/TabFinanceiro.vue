@@ -782,7 +782,7 @@
         <!-- Nota de rodapé -->
         <div class="rel-nota">
           <i class="fas fa-circle-info"></i>
-          Teto MEI {{ anoRelatorioAtual }}: {{ R$(TETO_MEI_ANUAL) }}/ano · Dados gerados com base nos lançamentos importados.
+          Teto MEI {{ anoRelatorioAtual }}: {{ R$(TETO_MEI_ANUAL.value) }}/ano · Dados gerados com base nos lançamentos importados.
           A DASN-SIMEI deve ser entregue até 31/05 do ano seguinte via portal gov.br/mei.
         </div>
 
@@ -1127,7 +1127,7 @@ function normalizarTexto(valor) {
 function abrirModalEdicao(lancamento) { lancamentoEmEdicao.value = lancamento }
 
 // ── Relatórios ──────────────────────────────────────────────
-const TETO_MEI_ANUAL = 81000   // Atualizar conforme publicação da RFB para o ano vigente
+const TETO_MEI_ANUAL = computed(() => s.company.teto_mei_anual || 81000)
 const nomeContribuinte = 'MEI — Conta PagBank / Itaú'
 
 const relTipo = ref('mensal')
@@ -1189,7 +1189,7 @@ const faturamentoAnoRel = computed(() =>
 )
 
 const percentualTeto = computed(() =>
-  TETO_MEI_ANUAL > 0 ? (faturamentoAnoRel.value / TETO_MEI_ANUAL) * 100 : 0
+  TETO_MEI_ANUAL.value > 0 ? (faturamentoAnoRel.value / TETO_MEI_ANUAL.value) * 100 : 0
 )
 
 // Acumulado do ano até o mês selecionado no relatório mensal
@@ -1206,7 +1206,7 @@ const acumuladoAteMes = computed(() => {
     receitas_mei,
     saidas_operacionais,
     saldo_operacional: receitas_mei - saidas_operacionais,
-    pct_teto: TETO_MEI_ANUAL > 0 ? (receitas_mei / TETO_MEI_ANUAL) * 100 : 0
+    pct_teto: TETO_MEI_ANUAL.value > 0 ? (receitas_mei / TETO_MEI_ANUAL.value) * 100 : 0
   }
 })
 
@@ -1230,7 +1230,7 @@ function gerarDocDASN() {
     empresa:  s.company,
     meses:    relatorioAnualMeses.value,
     totais:   totalAnual.value,
-    tetoAnual: TETO_MEI_ANUAL,
+    tetoAnual: TETO_MEI_ANUAL.value,
     pctTeto:  percentualTeto.value,
     incluirNaoMei: incluirRendasPessoais.value
   })

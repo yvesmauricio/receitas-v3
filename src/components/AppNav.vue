@@ -15,7 +15,6 @@ const nav = [
   { id: 'financeiro', icon: 'fas fa-money-check-dollar', label: 'Financeiro' },
   { id: 'insumos', icon: 'fas fa-boxes', label: 'Ingredientes' },
   { id: 'receitas', icon: 'fas fa-book-open', label: 'Receitas' },
-  { id: 'producao', icon: 'fas fa-industry', label: 'Produção' },
-
+  { id: 'producao', icon: 'fas fa-industry', label: 'Produção' }
 ]
 </script>

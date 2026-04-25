@@ -9,7 +9,7 @@
     </div>
     <div class="hdr-right">
       <div class="hdr-actions">
-        <button class="hdr-btn" title="Configurações" @click="s.openModal('settings')">
+        <button class="hdr-btn" :class="{ active: s.tab === 'ajustes' }" title="Configurações" @click="s.setTab('ajustes')">
           <i class="fas fa-cog"></i>
         </button>
       </div>

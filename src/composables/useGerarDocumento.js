@@ -379,26 +379,22 @@ export function gerarLivroCaixa({
   <!-- ── Identificação ── -->
   <table class="id-box">
     <tr>
-      <th style="width:30%">Razão Social / Nome do MEI</th>
-      <th style="width:22%">CPF / CNPJ (MEI)</th>
-      <th style="width:20%">Competência (Mês/Ano)</th>
-      <th style="width:28%">Atividade Econômica Principal</th>
+      <th style="width:45%">Razão Social / Nome do MEI</th>
+      <th style="width:30%">CPF / CNPJ (MEI)</th>
+      <th style="width:25%">Competência (Mês/Ano)</th>
     </tr>
     <tr>
       <td><strong>${escHtml(nomeEmpresa)}</strong></td>
       <td><strong>${escHtml(empresa?.cnpj || empresa?.cpf || 'Não informado')}</strong></td>
       <td class="cen"><strong>${mes_ref || ''}</strong></td>
-      <td>${escHtml(empresa?.cnae || 'Produção de alimentos')}</td>
     </tr>
     <tr>
-      <th colspan="2">Endereço do Estabelecimento</th>
-      <th>Município / UF</th>
-      <th>CNAE Principal</th>
+      <th colspan="2">Município / UF</th>
+      <th>Atividade Econômica Principal (CNAE)</th>
     </tr>
     <tr>
-      <td colspan="2"><em style="color:#777">Preencher conforme CCMEI</em></td>
-      <td><strong>${escHtml(empresa?.municipio || '—')} / ${escHtml(empresa?.uf || '—')}</strong></td>
-      <td>${escHtml(empresa?.cnae || '1091-1/01')}</td>
+      <td colspan="2"><strong>${escHtml(empresa?.municipio || '—')} / ${escHtml(empresa?.uf || '—')}</strong></td>
+      <td><strong>${escHtml(empresa?.cnae || '1091-1/01')}</strong></td>
     </tr>
   </table>
 
