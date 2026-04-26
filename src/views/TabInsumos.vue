@@ -4,7 +4,7 @@
       <div class="tab-hdr-top">
         <h2 class="tab-title"><i class="fas fa-boxes"></i> Ingredientes</h2>
         <div class="tab-actions">
-          <button class="btn-primary-sm" @click="abrir(null)"><i class="fas fa-plus"></i> Novo</button>
+          <button class="btn btn-primary btn-sm" @click="abrir(null)"><i class="fas fa-plus"></i> Novo</button>
         </div>
       </div>
       <div class="search-wrap">

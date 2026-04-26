@@ -263,9 +263,6 @@
     <!-- ═══ ABA: MENSAL ═══ -->
     <template v-else-if="abaAtiva === 'mensal'">
       <div class="relatorio-wrap">
-        <div class="rel-print-bar">
-          <button class="btn-print" @click="imprimir"><i class="fas fa-print"></i> Imprimir tela</button>
-        </div>
         <!-- Resumo por banco -->
         <section class="sheet-card">
           <div class="sheet-body">
@@ -355,9 +352,6 @@
     <!-- ═══ ABA: ANUAL ═══ -->
     <template v-else-if="abaAtiva === 'anual'">
       <div class="relatorio-wrap">
-        <div class="rel-print-bar">
-          <button class="btn-print" @click="imprimir"><i class="fas fa-print"></i> Imprimir tela</button>
-        </div>
         <!-- Seletor de ano -->
         <div class="ano-selector-inline">
           <button v-for="a in anosDisponiveis" :key="a" class="ano-btn"
@@ -574,7 +568,7 @@
                 <!-- Tabela Despesas Operacionais -->
                 <div class="lc-section-label saida">↓ DESPESAS OPERACIONAIS</div>
                 <div class="lc-tabela">
-                  <div v-for="item in lancMensalOperacional" :key="item.id" class="lc-row saida-row">
+                  <div v-for="item in lancMensalSaidasParaDoc" :key="item.id" class="lc-row saida-row">
                     <div class="lc-col-top">
                       <span class="lc-badge lc-saida">{{ item.categoria }}</span>
                       <span class="lc-col-val c-red">{{ R$(Math.abs(item.valor)) }}</span>
@@ -582,7 +576,7 @@
                     <div class="lc-col-desc">{{ item.descricao }}</div>
                     <div class="lc-col-data">{{ formatarData(item.data) }}</div>
                   </div>
-                  <div v-if="!lancMensalOperacional.length" class="lc-vazio">Nenhuma despesa operacional.</div>
+                  <div v-if="!lancMensalSaidasParaDoc.length" class="lc-vazio">Nenhuma despesa operacional.</div>
                   <div class="lc-total">
                     <span class="lc-total-label">Total Despesas Operacionais</span>
                     <strong class="c-red">{{ R$(dadosRelMensal.saidas_operacionais) }}</strong>
@@ -782,7 +776,7 @@
         <!-- Nota de rodapé -->
         <div class="rel-nota">
           <i class="fas fa-circle-info"></i>
-          Teto MEI {{ anoRelatorioAtual }}: {{ R$(TETO_MEI_ANUAL.value) }}/ano · Dados gerados com base nos lançamentos importados.
+          Teto MEI {{ anoRelatorioAtual }}: {{ R$(TETO_MEI_ANUAL) }}/ano · Dados gerados com base nos lançamentos importados.
           A DASN-SIMEI deve ser entregue até 31/05 do ano seguinte via portal gov.br/mei.
         </div>
 
@@ -898,14 +892,14 @@ const transInternasCount = computed(() =>
 
 const totalEntradas  = computed(() =>
   lancamentosFiltrados.value
-    .filter(i => i.valor > 0 && i.natureza !== 'interna')
+    .filter(i => (i.natureza === 'entrada' || (i.natureza === 'pessoal' && i.valor > 0)) && i.natureza !== 'interna')
     .reduce((a, i) => a + i.valor, 0)
 )
 
 const totalSaidas    = computed(() =>
   lancamentosFiltrados.value
-    .filter(i => i.valor < 0 && i.natureza !== 'interna')
-    .reduce((a, i) => a + Math.abs(i.valor), 0)
+    .filter(i => (i.natureza === 'operacional' || (i.natureza === 'pessoal' && i.valor < 0)) && i.natureza !== 'interna')
+    .reduce((a, i) => a - i.valor, 0)
 )
 
 const saldoFiltrado  = computed(() =>
@@ -1171,13 +1165,12 @@ const lancMensalNaoMei = computed(() => {
   )
 })
 
-// Lançamentos do mês — despesas operacionais
-const lancMensalOperacional = computed(() => {
+// Lançamentos do mês — despesas (operacionais + pessoais se solicitado)
+const lancMensalSaidasParaDoc = computed(() => {
   if (!relMensalMesRef.value) return []
   return s.financeiro.filter(i =>
     i.mes_ref === relMensalMesRef.value &&
-    i.natureza === 'operacional' &&
-    i.valor < 0
+    (i.natureza === 'operacional' || (incluirRendasPessoais.value && i.natureza === 'pessoal' && i.valor < 0))
   )
 })
 
@@ -1217,7 +1210,7 @@ function gerarDocLivroCaixa() {
     empresa:  s.company,
     entradas: lancMensalEntradas.value,
     naoMei:   lancMensalNaoMei.value,
-    saidas:   lancMensalOperacional.value,
+    saidas:   lancMensalSaidasParaDoc.value,
     totais:   dadosRelMensal.value || {},
     acumulado: acumuladoAteMes.value,
     incluirNaoMei: incluirRendasPessoais.value
@@ -1237,8 +1230,6 @@ function gerarDocDASN() {
 }
 
 onMounted(() => s.carregarFinanceiro())
-
-function imprimir() { window.print() }
 </script>
 
 <style scoped>
@@ -1704,10 +1695,6 @@ function imprimir() { window.print() }
 
 /* ── Relatório ─── */
 .relatorio-wrap { padding: 14px 16px max(96px, calc(72px + env(safe-area-inset-bottom))); display: flex; flex-direction: column; gap: 14px; }
-.sheet-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); }
-.sheet-body { padding: 14px; }
-.section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
-.section-head h4 { font-size: .9rem; font-weight: 700; color: var(--brown-dark); display: flex; align-items: center; gap: 6px; }
 
 /* Banco grid */
 .banco-resumo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -2143,39 +2130,6 @@ function imprimir() { window.print() }
   .anual-item   { padding: 10px 12px; }
 }
 
-/* ── Botão Imprimir ─────────────────────────────────────── */
-.sh-tools {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-.rel-print-bar {
-  display: flex;
-  justify-content: flex-end;
-}
-.btn-print {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 16px;
-  background: var(--brown);
-  color: #fff;
-  border: none;
-  border-radius: var(--r-md);
-  font-size: .8rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background var(--t), transform var(--t);
-  white-space: nowrap;
-}
-.btn-print:active { background: var(--brown-dark); transform: scale(.96); }
-.btn-print-sm {
-  padding: 6px 10px;
-  font-size: .75rem;
-  border-radius: var(--r-sm);
-}
-
 /* Botão gerar documento oficial */
 .btn-gerar {
   display: inline-flex;
@@ -2254,7 +2208,7 @@ function imprimir() { window.print() }
 @media print {
   /* Esconder chrome do app */
   .hdr, .nav, .tab-hdr,
-  .rel-tipo-nav, .rel-print-bar, .sh-tools .btn-print,
+  .rel-tipo-nav,
   .teto-alertas, .ano-selector-inline,
   .btn-abrir-import { display: none !important; }
 

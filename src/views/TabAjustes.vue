@@ -32,13 +32,21 @@
               <input v-model="company.razao_social" class="input" placeholder="Nome completo ou Razão Social" />
             </div>
             <div class="fg-row">
-              <div class="fg" style="flex: 2">
+              <div class="fg fg-2">
                 <label class="label">CNPJ</label>
-                <input v-model="company.cnpj" class="input" placeholder="00.000.000/0001-00" />
+                <input 
+                  :value="company.cnpj" 
+                  @input="e => company.cnpj = maskCnpj(e.target.value)"
+                  class="input" 
+                  placeholder="00.000.000/0001-00" 
+                />
               </div>
               <div class="fg" style="flex: 1.5">
                 <label class="label">CPF do Titular</label>
-                <input v-model="company.cpf" class="input" placeholder="000.000.000-00" />
+                <input 
+                  :value="company.cpf" 
+                  @input="e => company.cpf = maskCpf(e.target.value)"
+                  class="input" placeholder="000.000.000-00" />
               </div>
             </div>
             <div class="fg-row">
@@ -46,18 +54,21 @@
                 <label class="label">Município</label>
                 <input v-model="company.municipio" class="input" placeholder="Ex: Rio de Janeiro" />
               </div>
-              <div class="fg" style="flex: 1">
+              <div class="fg fg-1">
                 <label class="label">UF</label>
                 <input v-model="company.uf" class="input" maxlength="2" placeholder="RJ" />
               </div>
             </div>
             <div class="fg">
               <label class="label">CNAE Principal</label>
-              <input v-model="company.cnae" class="input" placeholder="Ex: 1091-1/01" />
+              <input 
+                :value="company.cnae" 
+                @input="e => company.cnae = maskCnae(e.target.value)"
+                class="input" placeholder="Ex: 1091-1/01" />
             </div>
           </div>
 
-          <div class="mt-16">
+          <div class="mt-24">
             <button class="btn btn-primary btn-full" @click="save">
               <i class="fas fa-save"></i> Salvar Dados da Empresa
             </button>
@@ -108,8 +119,8 @@
               <div class="backup-status" v-if="s.googleDriveConfigured">Conectado</div>
               <div class="backup-status warn" v-else>Não configurado</div>
               <div class="backup-btns">
-                <button class="btn-sm" :disabled="!s.googleDriveConfigured" @click="s.backupGoogleDrive">Salvar</button>
-                <button class="btn-sm outline" :disabled="!s.googleDriveConfigured" @click="s.restaurarGoogleDrive">Restaurar</button>
+                <button class="backup-btn" :disabled="!s.googleDriveConfigured" @click="s.backupGoogleDrive">Salvar</button>
+                <button class="backup-btn outline" :disabled="!s.googleDriveConfigured" @click="s.restaurarGoogleDrive">Restaurar</button>
               </div>
             </div>
 
@@ -121,7 +132,7 @@
               </div>
               <div class="backup-status">JSON</div>
               <div class="backup-btns">
-                <button class="btn-sm" @click="s.backupGeral">Exportar</button>
+                <button class="backup-btn" @click="s.backupGeral">Exportar</button>
                 <label class="btn-sm outline">
                   Importar
                   <input type="file" hidden accept=".json" @change="e => s.restaurarGeral(e.target.files[0])" />
@@ -154,17 +165,30 @@
             </div>
           </div>
 
-          <div class="mt-16">
+          <div class="mt-24">
             <button class="btn btn-primary btn-full" @click="save">
               <i class="fas fa-save"></i> Salvar Preferências
             </button>
           </div>
 
-          <div class="danger-zone mt-24">
-            <p class="danger-title">Zona de Perigo</p>
-            <button class="btn-danger-outline" @click="zerarDados">
-              <i class="fas fa-trash-can"></i> Apagar todos os dados do App
-            </button>
+          <div class="maintenance-zone mt-24">
+            <p class="section-label-sm">Manutenção de Dados</p>
+            <div class="maintenance-grid mt-8">
+              <button class="btn btn-secondary btn-sm" @click="reclassificarLancamentos">
+                <i class="fas fa-wand-magic-sparkles"></i> Reclassificar Extratos
+              </button>
+              <p class="hint">Aplica as regras automáticas de categorias em todos os lançamentos não editados manualmente.</p>
+            </div>
+          </div>
+
+          <div class="danger-zone mt-32">
+            <p class="danger-title">Zona Crítica</p>
+            <div class="maintenance-grid">
+              <button class="btn-danger-outline" @click="zerarDados">
+                <i class="fas fa-trash-can"></i> Apagar tudo
+              </button>
+              <p class="hint">Remove permanentemente receitas, produtos e histórico financeiro.</p>
+            </div>
           </div>
         </div>
       </section>
@@ -214,14 +238,24 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import { useStore } from '../store.js'
+import { maskCpf, maskCnpj, maskCnae } from '../utils.js'
 import { useConfirm } from '../composables/useConfirm.js'
 import BaseModal from '../components/BaseModal.vue'
 
 const s = useStore()
 const confirm = useConfirm()
 const company = reactive({ ...s.company })
+
+// 🔄 Sincroniza o formulário local quando os dados são carregados do banco (Store Init)
+// Isso evita que a tela mostre dados padrão caso o banco demore a responder
+watch(() => s.company, (novoValor) => {
+  if (novoValor) {
+    // Copia os dados da store para o estado local do formulário
+    Object.assign(company, JSON.parse(JSON.stringify(novoValor)))
+  }
+}, { deep: true, immediate: true })
 
 const abaAtiva = ref('perfil')
 const menus = [
@@ -276,6 +310,16 @@ async function removerConta(idx) {
   }
 }
 
+async function reclassificarLancamentos() {
+  s.loading = true
+  try {
+    const total = await s.reclassificarTodosFinanceiro()
+    if (total > 0) s.notify(`${total} lançamentos atualizados!`)
+  } finally {
+    s.loading = false
+  }
+}
+
 async function zerarDados() {
   const ok = await confirm.ask('ATENÇÃO: Todos os produtos, receitas, produções e dados financeiros serão apagados permanentemente. Deseja continuar?', {
     title: 'Zerar Banco de Dados',
@@ -301,9 +345,6 @@ async function zerarDados() {
 .fade-in { animation: fadeIn 0.2s ease-out; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-.sheet-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); }
-.sheet-body { padding: 16px; }
-
 .form-grid { display: flex; flex-direction: column; gap: 14px; }
 .fg-row { display: flex; gap: 12px; }
 .input-with-icon { position: relative; }
@@ -323,8 +364,6 @@ async function zerarDados() {
 .btn-action-del { width: 32px; height: 32px; background: transparent; border: none; color: var(--red); font-size: .85rem; }
 .btn-action-edit { width: 32px; height: 32px; background: transparent; border: none; color: var(--brown-mid); font-size: .85rem; }
 
-.btn-add-outline { width: 100%; padding: 10px; border: 1.5px dashed var(--border); border-radius: var(--r-md); background: transparent; color: var(--brown-mid); font-size: .8rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; }
-
 .backup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .backup-box { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px; display: flex; flex-direction: column; gap: 8px; opacity: .6; }
 .backup-box.active { opacity: 1; border-color: var(--gold); background: var(--gold-bg); }
@@ -332,12 +371,11 @@ async function zerarDados() {
 .backup-status { font-size: .65rem; font-weight: 800; text-transform: uppercase; color: var(--muted); }
 .backup-status.warn { color: var(--red); }
 .backup-btns { display: flex; flex-direction: column; gap: 5px; }
-.btn-sm { width: 100%; padding: 6px; border: none; border-radius: 6px; background: var(--brown); color: #fff; font-size: .75rem; font-weight: 700; }
-.btn-sm.outline { background: transparent; border: 1px solid var(--brown); color: var(--brown); }
+.backup-btn { width: 100%; padding: 6px; border: none; border-radius: 6px; background: var(--brown); color: #fff; font-size: .75rem; font-weight: 700; }
+.backup-btn.outline { background: transparent; border: 1px solid var(--brown); color: var(--brown); }
 
 .danger-zone { border-top: 1px solid var(--border); padding-top: 16px; }
 .danger-title { font-size: .7rem; font-weight: 800; color: var(--red); text-transform: uppercase; margin-bottom: 8px; }
-.btn-danger-outline { width: 100%; padding: 10px; border: 1px solid var(--red); border-radius: var(--r-md); background: transparent; color: var(--red); font-size: .8rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; }
 
 .version-info { text-align: center; font-size: .7rem; color: var(--muted); font-weight: 600; margin-top: 20px; }
 </style>

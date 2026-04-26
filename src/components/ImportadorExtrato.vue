@@ -190,7 +190,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useStore } from '../store.js'
-import { R$, normalizar } from '../utils.js'
+import { R$, normalizar, formatarData, labelNatureza } from '../utils.js'
 
 const emit = defineEmits(['editar-lancamento'])
 const s = useStore()
@@ -220,20 +220,6 @@ const COLUNAS = {
 
 function normalizarCabecalho(valor) {
   return normalizar(valor).replace(/[^a-z0-9]/g, '')
-}
-
-function formatarData(dataIso) {
-  if (!dataIso) return ''
-  const [ano, mes, dia] = dataIso.split('-')
-  return dia && mes && ano ? `${dia}/${mes}/${ano}` : dataIso
-}
-
-function labelNatureza(natureza) {
-  return {
-    entrada: 'entrada',
-    operacional: 'operacional',
-    pessoal: 'pessoal'
-  }[natureza] || natureza
 }
 
 function parseValorBr(valor) {
@@ -440,8 +426,6 @@ async function onFileChange(event) {
 
 .hero-card,
 .sheet-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
 }
@@ -477,15 +461,6 @@ async function onFileChange(event) {
   color: var(--muted);
   line-height: 1.55;
 }
-
-.sheet-body {
-  padding: 14px;
-}
-
-.fg { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-.label { font-size: .76rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
-.input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg); color: var(--text); font-size: .85rem; }
-
 .upload-card {
   display: flex;
   align-items: center;

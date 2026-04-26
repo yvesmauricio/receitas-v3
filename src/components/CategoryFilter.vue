@@ -1,10 +1,10 @@
 <template>
   <div class="cat-filter-wrap">
-    <div class="cat-chips">
+    <div class="cat-chips chips-padded">
       <button
         v-for="item in normalizedItems"
         :key="item.value"
-        class="cat-chip"
+        class="chip"
         :class="{ active: modelValue === item.value }"
         @click="emit('update:modelValue', item.value)"
       >{{ item.label }}</button>

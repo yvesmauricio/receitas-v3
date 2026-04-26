@@ -4,7 +4,7 @@
       <div class="tab-hdr-top">
         <h2 class="tab-title"><i class="fas fa-industry"></i> Produção</h2>
         <div class="tab-actions">
-          <button class="btn-primary-sm" @click="s.setTab('cozinha')"><i class="fas fa-plus"></i> Produzir</button>
+          <button class="btn btn-primary btn-sm" @click="s.setTab('cozinha')"><i class="fas fa-plus"></i> Produzir</button>
         </div>
       </div>
       <div class="search-wrap">

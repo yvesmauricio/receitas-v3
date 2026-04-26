@@ -1,17 +1,7 @@
 <template>
-  <div class="modal-overlay" @click.self="emit('close')">
-    <div class="modal-box">
-
-      <div class="modal-hdr">
-        <div class="modal-hdr-left">
-          <i class="fas fa-tag"></i>
-          <div>
-            <h2>{{ modoLote ? `Categorizar ${ids.length} lançamentos` : 'Editar Lançamento' }}</h2>
-            <p class="modal-sub">{{ modoLote ? 'Todos receberão a mesma categoria' : lancamento?.descricao }}</p>
-          </div>
-        </div>
-        <button class="close-btn" @click="emit('close')"><i class="fas fa-xmark"></i></button>
-      </div>
+  <BaseModal :title="modoLote ? `Categorizar ${ids.length} itens` : 'Editar Lançamento'" @close="emit('close')">
+    <div class="modal-inner-ext">
+      <div v-if="!modoLote && lancamento" class="modal-sub-hdr">{{ lancamento.descricao }}</div>
 
       <div v-if="!modoLote && lancamento" class="lancamento-info">
         <div class="info-row">
@@ -31,7 +21,7 @@
         </div>
       </div>
 
-      <div class="modal-body">
+      <div class="modal-body-local">
         <p class="label-escolha">Categoria MEI:</p>
         <div v-for="grupo in gruposOrdenados" :key="grupo.nome" class="grupo">
           <div class="grupo-titulo">
@@ -73,21 +63,22 @@
         </div>
       </div>
 
-      <div class="modal-footer">
-        <button class="btn-cancel" @click="emit('close')">Cancelar</button>
-        <button class="btn-save" :disabled="!novaCategoria || salvando" @click="salvar">
-          <i class="fas" :class="salvando ? 'fa-spinner fa-spin' : 'fa-check'"></i>
-          {{ salvando ? 'Salvando...' : (modoLote ? `Aplicar a ${ids.length}` : 'Salvar') }}
-        </button>
-      </div>
     </div>
-  </div>
+    <template #foot>
+      <button class="btn btn-secondary" @click="emit('close')">Cancelar</button>
+      <button class="btn btn-primary" :disabled="!novaCategoria || salvando" @click="salvar" style="flex: 2">
+        <i class="fas" :class="salvando ? 'fa-spinner fa-spin' : 'fa-check'"></i>
+        {{ salvando ? 'Salvando...' : (modoLote ? `Aplicar a ${ids.length}` : 'Salvar') }}
+      </button>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useStore } from '../store.js'
-import { R$ } from '../utils.js'
+import { R$, normalizar, formatarData, labelNatureza } from '../utils.js'
+import BaseModal from './BaseModal.vue'
 
 const props = defineProps({
   lancamento: { type: Object, default: null },
@@ -111,8 +102,8 @@ watch(() => props.lancamento, (l) => {
 
 const mesmaDescricaoRelacionados = computed(() => {
   if (!props.lancamento?.descricao) return []
-  const descricaoNormalizada = normalizarDescricao(props.lancamento.descricao)
-  return s.financeiro.filter(item => normalizarDescricao(item.descricao) === descricaoNormalizada)
+  const desc = normalizar(props.lancamento.descricao)
+  return s.financeiro.filter(item => normalizar(item.descricao) === desc)
 })
 
 const gruposOrdenados = computed(() => {
@@ -123,24 +114,6 @@ const gruposOrdenados = computed(() => {
   }
   return [...map.values()]
 })
-
-function labelNatureza(n) {
-  return { entrada: '↑ Receita', operacional: '↓ Operacional', pessoal: '↓ Pessoal', interna: '⇄ Interna' }[n] || n
-}
-
-function formatarData(dataIso) {
-  if (!dataIso) return ''
-  const [ano, mes, dia] = dataIso.split('-')
-  return `${dia}/${mes}/${ano}`
-}
-
-function normalizarDescricao(valor) {
-  return String(valor || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLowerCase()
-}
 
 async function salvar() {
   if (!novaCategoria.value) return
@@ -168,16 +141,8 @@ async function salvar() {
 </script>
 
 <style scoped>
-.modal-overlay { position: fixed; inset: 0; background: rgba(30,18,8,.55); display: flex; align-items: flex-end; justify-content: center; z-index: 1000; }
-.modal-box { background: var(--surface); border-radius: var(--r-xl) var(--r-xl) 0 0; width: 100%; max-width: 480px; max-height: 92vh; display: flex; flex-direction: column; animation: slideUp .22s var(--t-spring); }
-@keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-.modal-hdr { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 16px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-.modal-hdr-left { display: flex; gap: 10px; align-items: flex-start; }
-.modal-hdr-left > i { margin-top: 3px; color: var(--gold-dark); font-size: 1rem; }
-.modal-hdr h2 { font-size: .98rem; font-weight: 700; color: var(--brown-dark); margin: 0 0 3px; }
-.modal-sub { font-size: .78rem; color: var(--muted); margin: 0; line-height: 1.4; word-break: break-word; }
-.close-btn { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg); color: var(--muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.modal-inner-ext { display: flex; flex-direction: column; height: 100%; }
+.modal-sub-hdr { padding: 12px 16px; font-size: .8rem; color: var(--muted); background: var(--surface); border-bottom: 1px solid var(--border); }
 
 .lancamento-info { padding: 10px 16px; background: var(--cream); border-bottom: 1px solid var(--border); display: flex; gap: 16px; flex-shrink: 0; flex-wrap: wrap; }
 .info-row { display: flex; flex-direction: column; gap: 2px; }
@@ -187,7 +152,7 @@ async function salvar() {
 .badge-it { color: var(--blue); }
 .badge-bb { color: #0f4ea8; }
 
-.modal-body { flex: 1; overflow-y: auto; padding: 14px 16px; -webkit-overflow-scrolling: touch; min-height: 0; }
+.modal-body-local { flex: 1; overflow-y: auto; padding: 14px 16px; -webkit-overflow-scrolling: touch; min-height: 0; }
 .label-escolha { font-size: .8rem; font-weight: 700; color: var(--brown-dark); margin: 0 0 12px; }
 .grupo { margin-bottom: 16px; }
 .grupo-titulo { font-size: .72rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
@@ -216,13 +181,6 @@ async function salvar() {
 .escopo-btn.selected i { color: var(--gold-dark); }
 .escopo-hint { margin: 10px 0 0; font-size: .74rem; line-height: 1.45; color: var(--muted); word-break: break-word; }
 
-.modal-footer { padding: 12px 16px max(20px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border); display: flex; gap: 10px; flex-shrink: 0; }
-.btn-cancel, .btn-save { flex: 1; padding: 12px; border: none; border-radius: var(--r-md); font-size: .9rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 7px; transition: all var(--t); }
-.btn-cancel { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
-.btn-cancel:active { background: var(--cream); }
-.btn-save { background: var(--brown); color: #fff; flex: 2; }
-.btn-save:active:not(:disabled) { background: var(--brown-dark); }
-.btn-save:disabled { opacity: .5; cursor: not-allowed; }
 .c-green { color: var(--green); }
 .c-red   { color: var(--red); }
 </style>

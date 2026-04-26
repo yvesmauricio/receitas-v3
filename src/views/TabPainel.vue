@@ -77,7 +77,7 @@
             <template v-else>
               <div class="flex-hdr mb-10">
                 <p class="hint">Total estimado para reposição:</p>
-                <button class="btn-sec-sm" @click="compartilharLista">
+                <button class="btn btn-secondary btn-sm" @click="compartilharLista">
                   <i class="fas fa-share-nodes"></i> Compartilhar
                 </button>
               </div>
@@ -239,17 +239,6 @@ const stats = computed(() => {
 .stat-val small { font-size: .8rem; font-weight: 400; }
 
 .flex-hdr { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-
-/* ── Cards de seção (exclusivos do painel) ── */
-.sheet-card {
-  background: var(--surface);
-  border-radius: var(--r-lg);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-}
-.sheet-body { padding: 14px; }
-
 /* ── Ranking ── */
 .row-rank { width: 28px; font-weight: 800; color: var(--gold); font-size: .8rem; flex-shrink: 0; }
 

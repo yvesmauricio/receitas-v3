@@ -90,7 +90,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useStore } from '../store.js'
-import { R$, normalizar } from '../utils.js'
+import { R$, normalizar, parseValorBr, processarCsv } from '../utils.js'
 
 const s = useStore()
 const importando = ref(false)
@@ -115,32 +115,6 @@ const COLUNAS = {
 
 function normalizarCabecalho(valor) {
   return normalizar(valor).replace(/[^a-z0-9]/g, '')
-}
-
-function normalizarTexto(valor) {
-  return String(valor || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function parseValorBr(valor) {
-  if (typeof valor === 'number') return valor
-  const texto = String(valor || '').trim()
-  if (!texto) return 0
-
-  const negativo = texto.includes('-')
-  const limpo = texto
-    .replace(/[R$\s]/g, '')
-    .replace(/\./g, '')
-    .replace(',', '.')
-    .replace(/[^0-9.-]/g, '')
-
-  const numero = Number(limpo)
-  if (!Number.isFinite(numero)) return 0
-  return negativo ? -Math.abs(numero) : numero
 }
 
 function parseDataBr(valor) {
@@ -175,7 +149,7 @@ function detectarColunas(linha) {
 }
 
 function mapearTipoBb(lancamento, tipoLancamento, valor) {
-  const base = normalizarTexto(`${lancamento} ${tipoLancamento}`)
+  const base = normalizar(`${lancamento} ${tipoLancamento}`)
   if (base.includes('pix recebido') || base.includes('pix-recebido qr code')) return 'PIX recebido'
   if (base.includes('pix enviado')) return 'PIX enviado'
   if (base.includes('transferencia recebida')) return 'PIX recebido'
@@ -195,7 +169,7 @@ function extrairLancamentos(linhas, colunas) {
 
     if (!data || !lancamento) return []
 
-    const lancamentoNorm = normalizarTexto(lancamento)
+    const lancamentoNorm = normalizar(lancamento)
     if (
       lancamentoNorm.includes('saldo do dia') ||
       lancamentoNorm.includes('saldo anterior') ||
@@ -213,80 +187,6 @@ function extrairLancamentos(linhas, colunas) {
   })
 }
 
-function detectarDelimitador(texto) {
-  const primeiraLinha = String(texto || '').split(/\r?\n/).find(Boolean) || ''
-  const candidatos = [';', ',', '\t']
-  let melhor = ';'
-  let maiorScore = -1
-
-  for (const delimitador of candidatos) {
-    const score = primeiraLinha.split(delimitador).length
-    if (score > maiorScore) {
-      maiorScore = score
-      melhor = delimitador
-    }
-  }
-
-  return melhor
-}
-
-function dividirLinhaCsv(linha, delimitador) {
-  const colunas = []
-  let atual = ''
-  let emAspas = false
-
-  for (let i = 0; i < linha.length; i++) {
-    const char = linha[i]
-    const prox = linha[i + 1]
-
-    if (char === '"') {
-      if (emAspas && prox === '"') {
-        atual += '"'
-        i += 1
-      } else {
-        emAspas = !emAspas
-      }
-      continue
-    }
-
-    if (char === delimitador && !emAspas) {
-      colunas.push(atual)
-      atual = ''
-      continue
-    }
-
-    atual += char
-  }
-
-  colunas.push(atual)
-  return colunas.map(item => item.trim())
-}
-
-async function lerArquivoCsv(arquivo) {
-  const buffer = await arquivo.arrayBuffer()
-  let texto = new TextDecoder('utf-8').decode(buffer)
-  if (texto.includes('\uFFFD')) {
-    texto = new TextDecoder('iso-8859-1').decode(buffer)
-  }
-  const delimitador = detectarDelimitador(texto)
-  const linhasBrutas = texto
-    .replace(/^\uFEFF/, '')
-    .split(/\r?\n/)
-    .map(linha => linha.trim())
-    .filter(Boolean)
-
-  if (linhasBrutas.length < 2) return []
-
-  const cabecalhos = dividirLinhaCsv(linhasBrutas[0], delimitador)
-  return linhasBrutas.slice(1).map((linha) => {
-    const valores = dividirLinhaCsv(linha, delimitador)
-    return cabecalhos.reduce((acc, chave, idx) => {
-      acc[chave] = valores[idx] ?? ''
-      return acc
-    }, {})
-  })
-}
-
 async function onFileChange(event) {
   const arquivo = event.target.files?.[0]
   event.target.value = ''
@@ -301,7 +201,12 @@ async function onFileChange(event) {
   resultadoImportacao.value = null
 
   try {
-    const linhas = await lerArquivoCsv(arquivo)
+    const buffer = await arquivo.arrayBuffer()
+    let texto = new TextDecoder('utf-8').decode(buffer)
+    if (texto.includes('\uFFFD')) {
+      texto = new TextDecoder('iso-8859-1').decode(buffer)
+    }
+    const linhas = processarCsv(texto)
     const primeiraLinha = linhas.find(linha => Object.values(linha || {}).some(Boolean)) || {}
     const colunas = detectarColunas(primeiraLinha)
 
@@ -336,17 +241,12 @@ async function onFileChange(event) {
 
 <style scoped>
 .importador-wrap { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
-.hero-card,
-.sheet-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); }
+.hero-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); }
 .hero-card { display: flex; gap: 12px; padding: 16px; background: linear-gradient(145deg, #fff7cc, var(--surface)); }
 .hero-icon { width: 48px; height: 48px; border-radius: var(--r-md); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
 .hero-icon.bb { background: rgba(243, 188, 0, 0.2); color: #0f4ea8; }
 .hero-body h3 { font-size: .98rem; color: var(--brown-dark); margin-bottom: 4px; }
 .hero-body p { font-size: .82rem; color: var(--muted); line-height: 1.55; }
-.sheet-body { padding: 14px; }
-.fg { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-.label { font-size: .76rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
-.input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg); color: var(--text); font-size: .85rem; }
 .upload-card { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px dashed var(--border); border-radius: var(--r-md); background: var(--bg); position: relative; overflow: hidden; }
 .upload-card.busy { opacity: .7; pointer-events: none; }
 .file-input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
@@ -358,8 +258,6 @@ async function onFileChange(event) {
 .upload-chevron { color: var(--muted); margin-left: auto; }
 .hint-box { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; padding: 10px 12px; border-radius: var(--r-md); background: var(--cream); color: var(--muted); font-size: .78rem; line-height: 1.5; }
 .hint-box i { margin-top: 2px; color: #0f4ea8; }
-.section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
-.section-head h4 { font-size: .9rem; font-weight: 700; color: var(--brown-dark); }
 .result-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .result-item { padding: 10px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--bg); display: flex; flex-direction: column; gap: 3px; }
 .result-item span { font-size: .74rem; color: var(--muted); }

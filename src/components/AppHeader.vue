@@ -21,9 +21,3 @@
 import { useStore } from '../store.js'
 const s = useStore()
 </script>
-
-<style scoped>
-.hdr {
-  padding-bottom: 16px; /* Aumenta o espaço abaixo do título e botões */
-}
-</style>

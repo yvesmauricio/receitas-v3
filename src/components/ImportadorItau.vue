@@ -263,16 +263,9 @@ async function onFileChange(event) {
   flex-direction: column;
   gap: 14px;
 }
-
-.hero-card,
-.sheet-card {
+.hero-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-sm);
-}
-
-.hero-card {
   display: flex;
   gap: 12px;
   padding: 16px;
@@ -303,15 +296,6 @@ async function onFileChange(event) {
   color: var(--muted);
   line-height: 1.55;
 }
-
-.sheet-body {
-  padding: 14px;
-}
-
-.fg { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-.label { font-size: .76rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
-.input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg); color: var(--text); font-size: .85rem; }
-
 .upload-card {
   display: flex;
   align-items: center;
@@ -383,19 +367,6 @@ async function onFileChange(event) {
   color: var(--blue);
   font-size: .78rem;
   line-height: 1.5;
-}
-
-.section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.section-head h4 {
-  font-size: .9rem;
-  color: var(--brown-dark);
 }
 
 .result-grid {

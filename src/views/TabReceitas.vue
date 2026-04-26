@@ -4,7 +4,7 @@
       <div class="tab-hdr-top">
         <h2 class="tab-title"><i class="fas fa-book-open"></i> Receitas</h2>
         <div class="tab-actions">
-          <button class="btn-primary-sm" @click="abrir(null)"><i class="fas fa-plus"></i> Nova</button>
+          <button class="btn btn-primary btn-sm" @click="abrir(null)"><i class="fas fa-plus"></i> Nova</button>
         </div>
       </div>
       <div class="search-wrap">
@@ -565,6 +565,15 @@ async function salvar() {
       { title: 'Divergência de Peso', type: 'warning', confirmLabel: 'Salvar mesmo assim' }
     )
     if (!ok) return 
+  }
+
+  // Alerta de Prejuízo: Se houver preço de venda e o lucro for negativo
+  if (form.preco_sugerido > 0 && lucro.value.valor < 0) {
+    const ok = await confirm.ask(
+      `O preço de venda (${R$(form.preco_sugerido)}) está abaixo do custo de produção (${R$(lucro.value.custoUnit)}). Você terá um prejuízo de ${R$(Math.abs(lucro.value.valor))} por unidade. Deseja salvar assim mesmo?`,
+      { title: 'Aviso de Prejuízo', type: 'danger', confirmLabel: 'Salvar com Prejuízo' }
+    )
+    if (!ok) return
   }
 
   saving.value = true

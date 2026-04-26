@@ -159,32 +159,37 @@ export function isGoogleDriveBackupConfigured() {
 }
 
 export async function salvarBackupNoDrive(backup) {
-  ensureConfigured()
-  const existingFile = await findBackupFile()
-  const metadata = {
-    name: DRIVE_FILE_NAME,
-    mimeType: 'application/json',
-    appProperties: { [DRIVE_APP_PROPERTY_KEY]: DRIVE_APP_PROPERTY_VALUE }
+  try {
+    ensureConfigured()
+    const existingFile = await findBackupFile()
+    const metadata = {
+      name: DRIVE_FILE_NAME,
+      mimeType: 'application/json',
+      appProperties: { [DRIVE_APP_PROPERTY_KEY]: DRIVE_APP_PROPERTY_VALUE }
+    }
+    if (!existingFile) metadata.parents = ['appDataFolder']
+
+    const content = JSON.stringify({
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      backup
+    })
+
+    const { boundary, body } = createMultipartBody(metadata, content)
+    const endpoint = existingFile
+      ? `https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=multipart`
+      : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'
+    const method = existingFile ? 'PATCH' : 'POST'
+
+    await driveFetch(endpoint, {
+      method,
+      headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+      body
+    })
+  } catch (error) {
+    console.error('Erro ao salvar backup no Google Drive:', error)
+    throw error // Re-lança para ser capturado pelo chamador (backupGoogleDrive)
   }
-  if (!existingFile) metadata.parents = ['appDataFolder']
-
-  const content = JSON.stringify({
-    version: 1,
-    updatedAt: new Date().toISOString(),
-    backup
-  })
-
-  const { boundary, body } = createMultipartBody(metadata, content)
-  const endpoint = existingFile
-    ? `https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=multipart`
-    : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'
-  const method = existingFile ? 'PATCH' : 'POST'
-
-  await driveFetch(endpoint, {
-    method,
-    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-    body
-  })
 }
 
 export async function restaurarBackupDoDrive() {

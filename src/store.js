@@ -298,7 +298,7 @@ export const useStore = defineStore('choco', () => {
     // 3a. PIX de Evelyn Ribeiro → renda pessoal separada da receita MEI
     if (
       (tipoNorm.includes('pix recebido') || tipoNorm.includes('qr code pix recebido') ||
-       (tipoNorm.includes('pix transf') && valorNum > 0)) &&
+      (tipoNorm.includes('pix transf') && valorNum > 0)) &&
       hasNomeRendaPessoal(descNorm)
     ) {
       return { categoria: 'Renda Pessoal', natureza: 'pessoal' }
@@ -306,8 +306,8 @@ export const useStore = defineStore('choco', () => {
 
     // 3b. Demais PIX recebidos de clientes → Receita de Vendas MEI
     if (
-      tipoNorm.includes('pix recebido') || tipoNorm.includes('qr code pix recebido') ||
-      tipoNorm.includes('pix transf') && valorNum > 0
+      (tipoNorm.includes('pix recebido') || tipoNorm.includes('qr code pix recebido') ||
+      tipoNorm.includes('pix transf')) && valorNum > 0
     ) {
       return { categoria: 'Receita de Vendas', natureza: 'entrada' }
     }
@@ -671,29 +671,37 @@ export const useStore = defineStore('choco', () => {
 
   // ── BACKUP ────────────────────────────────
   async function backupGeral() {
-    const dados = await exportarDados()
-    const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `chocostoq-backup-${new Date().toISOString().slice(0,10)}.json`
-    a.click()
-    notify('Backup baixado com sucesso!')
+    try {
+      const dados = await exportarDados()
+      const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `chocostoq-backup-${new Date().toISOString().slice(0,10)}.json`
+      document.body.appendChild(a) // Temporariamente anexa para maior compatibilidade de navegador
+      a.click()
+      document.body.removeChild(a) // Limpa o elemento
+      setTimeout(() => URL.revokeObjectURL(url), 100) // Revoga a URL após um pequeno atraso para garantir que o download comece
+      notify('Backup baixado com sucesso!')
+    } catch (error) {
+      console.error('Erro ao gerar backup local:', error)
+      notify('Erro ao gerar backup local. Tente novamente.', 'error')
+    }
   }
 
   async function backupGoogleDrive() {
     if (!googleDriveConfigured.value) {
-      notify('Configure o Google Client ID para usar o backup no Drive', 'error')
+      notify('Drive não configurado', 'error')
       return
     }
 
     try {
       const dados = await exportarDados()
       await salvarBackupNoDrive(dados)
-      notify('Backup enviado para o Google Drive!')
+      notify('Backup salvo no Drive!')
     } catch (error) {
       console.error(error)
-      notify('Nao foi possivel enviar o backup para o Google Drive', 'error')
+      notify('Erro ao salvar no Drive', 'error')
     }
   }
 
@@ -714,21 +722,21 @@ export const useStore = defineStore('choco', () => {
 
   async function restaurarGoogleDrive() {
     if (!googleDriveConfigured.value) {
-      notify('Configure o Google Client ID para usar a restauracao do Drive', 'error')
+      notify('Drive não configurado', 'error')
       return
     }
 
     try {
       const dados = await restaurarBackupDoDrive()
       await importarDados(dados)
-      notify('Backup do Google Drive restaurado! Recarregando…')
+      notify('Backup restaurado! Recarregando…')
       setTimeout(() => location.reload(), 1500)
     } catch (error) {
       console.error(error)
       notify(
         error?.message === 'Nenhum backup encontrado no Google Drive'
-          ? 'Nenhum backup encontrado no Google Drive'
-          : 'Nao foi possivel restaurar o backup do Google Drive',
+          ? 'Backup não encontrado no Drive'
+          : 'Erro ao restaurar do Drive',
         'error'
       )
     }
@@ -1193,27 +1201,29 @@ export const useStore = defineStore('choco', () => {
       atual.total += valor
       atual.quantidade += 1
       
-      // Entrada Bruta: Consideramos apenas o que NÃO é transferência interna para não inflar o card
-      if (valor > 0 && item.natureza !== 'interna') {
-        atual.entradas += valor
-      }
-
       if (item.natureza === 'interna') return
-      
-      // Para o MEI, tanto 'Receita de Vendas' quanto 'Outras Receitas' compõem o faturamento bruto.
-      // Apenas 'Rendimento Financeiro' (aplicação) costuma ser separado.
-      if (item.natureza === 'entrada' && item.categoria !== 'Rendimento Financeiro') {
-        atual.receitas_mei += valor
-      }
 
-      // Renda Pessoal (ex: Evelyn Ribeiro) — entra separado, fora da receita MEI
-      if (item.categoria === 'Renda Pessoal' && valor > 0) {
-        atual.renda_pessoal += valor
+      if (item.natureza === 'entrada') {
+        atual.entradas += valor
+        if (item.categoria === 'Rendimento Financeiro') {
+          atual.rendimento_financeiro += valor
+        } else {
+          atual.receitas_mei += valor
+        }
       }
-
-      if (item.categoria === 'Rendimento Financeiro') atual.rendimento_financeiro += valor
-      if (item.natureza === 'operacional' && valor < 0) atual.saidas_operacionais += Math.abs(valor)
-      if (item.natureza === 'pessoal' && valor < 0) atual.saidas_pessoais += Math.abs(valor)
+      else if (item.natureza === 'operacional') {
+        // Cálculo Líquido: Subtrai valores positivos (estornos) do total de saídas
+        // Se valor é -100, 0 - (-100) = 100. Se há estorno de 20, 100 - 20 = 80.
+        atual.saidas_operacionais -= valor 
+      }
+      else if (item.natureza === 'pessoal') {
+        if (valor > 0) {
+          atual.entradas += valor
+          atual.renda_pessoal += valor
+        } else {
+          atual.saidas_pessoais += Math.abs(valor)
+        }
+      }
     })
 
     return [...meses.values()].sort((a, b) => {

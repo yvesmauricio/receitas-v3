@@ -304,10 +304,23 @@ export function gerarLivroCaixa({
 
   const addLinha = (item, tipo) => {
     seq.n++
-    const val = Math.abs(item.valor || 0)
-    if (tipo === 'entrada') saldo += val
-    else saldo -= val
-    linhas.push({ seq: seq.n, data: item.data, desc: item.descricao, cat: item.categoria, tipo, val, saldo })
+    // Para manter o saldo correto, usamos o valor real (negativo para saídas)
+    const valReal = item.valor || 0
+    saldo += valReal
+
+    // No Livro Caixa, um valor positivo em uma coluna de saída é uma dedução
+    const isDeduction = (tipo === 'saida' && valReal > 0) || (tipo === 'entrada' && valReal < 0)
+    const valDisplay = Math.abs(valReal)
+
+    linhas.push({ 
+      seq: seq.n, 
+      data: item.data, 
+      desc: item.descricao, 
+      cat: item.categoria, 
+      tipo, 
+      val: isDeduction ? -valDisplay : valDisplay, 
+      saldo 
+    })
   }
 
   const listaEntradas = incluirNaoMei ? [...entradas, ...naoMei] : entradas
@@ -315,8 +328,14 @@ export function gerarLivroCaixa({
     .sort((a, b) => (a.data || '').localeCompare(b.data || ''))
 
   ordenados.forEach(it => {
-    const isEntrada = (it.natureza === 'entrada') || it.valor > 0
-    addLinha(it, isEntrada ? 'entrada' : 'saida')
+    // Agrupamento por natureza para bater com os totais do Store
+    let colTipo = 'saida'
+    if (it.natureza === 'entrada') colTipo = 'entrada'
+    else if (it.natureza === 'pessoal' && it.valor > 0) colTipo = 'entrada'
+    else if (it.natureza === 'operacional') colTipo = 'saida'
+    
+    if (it.natureza === 'interna') return 
+    addLinha(it, colTipo)
   })
 
   // Preencher com linhas vazias até mínimo de 20 (padrão livro caixa)
@@ -327,8 +346,8 @@ export function gerarLivroCaixa({
 
   const linhasHTML = linhas.map((l, i) => {
     if (!l) return `<tr class="vazio"><td>${''}</td><td></td><td></td><td class="num"></td><td class="num"></td><td class="num"></td></tr>`
-    const entrada = l.tipo === 'entrada' ? BRL(l.val) : ''
-    const saida   = l.tipo === 'saida'   ? BRL(l.val) : ''
+    const entrada = l.tipo === 'entrada' ? (l.val < 0 ? `(${BRL(Math.abs(l.val))})` : BRL(l.val)) : ''
+    const saida   = l.tipo === 'saida'   ? (l.val < 0 ? `(${BRL(Math.abs(l.val))})` : BRL(l.val)) : ''
     const saldoStr = l.saldo < 0
       ? `<span style="color:#c41c1c">(${BRL(Math.abs(l.saldo))})</span>`
       : BRL(l.saldo)
@@ -343,8 +362,13 @@ export function gerarLivroCaixa({
       </tr>`
   }).join('')
 
-  const totalEntradas = (totais.receitas_mei || 0) + (totais.outras_entradas_nao_mei || 0)
-  const totalSaidas   = (totais.saidas_operacionais || 0) + (totais.saidas_pessoais || 0)
+  // Totais do rodapé da tabela devem refletir exatamente o que está nas linhas acima
+  const totalEntradasTabela = incluirNaoMei 
+    ? (totais.receitas_mei || 0) + (totais.outras_entradas_nao_mei || 0)
+    : (totais.receitas_mei || 0)
+  const totalSaidasTabela = incluirNaoMei
+    ? (totais.saidas_operacionais || 0) + (totais.saidas_pessoais || 0)
+    : (totais.saidas_operacionais || 0)
   const saldoFinal    = totais.saldo_mes ?? (totais.saldo_operacional ?? 0)
 
   const html = `<!DOCTYPE html>
@@ -418,9 +442,9 @@ export function gerarLivroCaixa({
     <tbody>
       ${linhasHTML}
       <tr class="subtotal">
-        <td colspan="3" style="text-align:right">TOTAL DO MÊS</td>
-        <td class="num">${BRL(incluirNaoMei ? totalEntradas : totais.receitas_mei)}</td>
-        <td class="num">${BRL(totalSaidas)}</td>
+        <td colspan="3" style="text-align:right">TOTAL ACUMULADO NO MÊS</td>
+        <td class="num">${BRL(totalEntradasTabela)}</td>
+        <td class="num">${BRL(totalSaidasTabela)}</td>
         <td class="num">${saldoFinal < 0 ? `<span style="color:#c41c1c">(${BRL(Math.abs(saldoFinal))})</span>` : BRL(saldoFinal)}</td>
       </tr>
     </tbody>
