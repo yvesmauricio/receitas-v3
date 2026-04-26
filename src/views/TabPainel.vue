@@ -33,6 +33,49 @@
           </div>
         </div>
 
+        <!-- 💡 Sugestão de Combo Estratégico (Acima de Produção por Categoria) -->
+        <section v-if="autoCombo" class="sheet-card auto-combo-card mb-16">
+          <div class="sheet-body">
+            <div class="flex-hdr mb-10">
+              <div class="section-label" style="margin-bottom:0"><i class="fas fa-wand-magic-sparkles"></i> Sugestão de Combo</div>
+              <button class="btn btn-secondary btn-sm" @click="compartilharCombo">
+                <i class="fab fa-whatsapp"></i> Enviar
+              </button>
+            </div>
+            
+            <div class="auto-combo-header">
+              <div class="auto-combo-title">{{ autoCombo.nome }}</div>
+              <p class="auto-combo-desc">
+                Unimos seu item <strong>mais vendido</strong> com um de <strong>alta margem</strong> para maximizar seu retorno.
+              </p>
+            </div>
+
+            <div class="auto-combo-items">
+              <div class="ac-item">
+                <span class="ac-qtd">2x</span> {{ autoCombo.itemPopular.nome }}
+              </div>
+              <div class="ac-item">
+                <span class="ac-qtd">1x</span> {{ autoCombo.itemLucro.nome }}
+              </div>
+            </div>
+
+            <div class="price-ladder mt-12">
+              <div class="ladder-grid">
+                <div v-for="p in autoCombo.escala" :key="p.qtd" class="ladder-item">
+                  <span class="l-qtd">{{ p.qtd }} kit{{ p.qtd > 1 ? 's' : '' }}</span>
+                  <strong class="l-val">{{ R$(p.total) }}</strong>
+                  <small class="l-unit">({{ R$(p.unitario) }}/un)</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="auto-combo-footer mt-10">
+              <span>Lucro p/ Kit: <strong>{{ R$(autoCombo.lucroUnitario) }}</strong></span>
+              <span class="badge badge-green">{{ autoCombo.margem.toFixed(0) }}% margem</span>
+            </div>
+          </div>
+        </section>
+
         <!-- Gráfico de Categorias -->
         <div class="section-label">📊 Produção por Categoria</div>
         <div class="sheet-card mb-16">
@@ -110,7 +153,7 @@ import CategoryFilter from '../components/CategoryFilter.vue'
 import { R$, avatarColor, fmtQtd as fmtQ } from '../utils.js'
 
 const s = useStore()
-const periodoAtivo = ref('7dias')
+const periodoAtivo = ref('30dias')
 const periodos = [
   { v: '7dias', l: '7 Dias' },
   { v: '30dias', l: '30 Dias' },
@@ -126,37 +169,34 @@ const atualizarDados = () => {
 watch(periodoAtivo, atualizarDados)
 onMounted(atualizarDados)
 
-function compartilharLista() {
-  if (!stats.value.consumoInsumos.length) return
-
-  const labelPeriodo = periodos.find(p => p.v === periodoAtivo.value)?.l || 'Período'
-  let texto = `🛒 *Lista de Compras - ${s.company.nome}*\n`
-  texto += `Estimativa baseada na produção: *${labelPeriodo}*\n\n`
-
-  stats.value.consumoInsumos.forEach(ins => {
-    texto += `• ${ins.nome}: *${fmtQ(ins.total, ins.unidade)}*\n`
+function compartilharCombo() {
+  if (!autoCombo.value) return
+  const combo = autoCombo.value
+  let texto = `🍫 *Sugestão do Dia: ${combo.nome}* 🍫\n\n`
+  texto += `*O que vem no kit:*\n`
+  texto += `• 2x ${combo.itemPopular.nome}\n`
+  texto += `• 1x ${combo.itemLucro.nome}\n\n`
+  texto += `🚀 *Oferta Especial:*\n`
+  combo.escala.forEach(p => {
+    texto += `• ${p.qtd} kit${p.qtd > 1 ? 's' : ''}: *R$ ${R$(p.total)}* _(${R$(p.unitario)}/un)_\n`
   })
-
-  texto += `\n_Gerado por ChocoStoq_`
-
-  if (navigator.share) {
-    navigator.share({ title: 'Lista de Compras', text: texto }).catch(() => {})
-  } else {
-    // Fallback para cópia ou link direto se o Share API não estiver disponível
-    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`
-    window.open(url, '_blank')
-  }
+  texto += `\n_Peça agora clicando aqui!_`
+  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank')
 }
 
-const stats = computed(() => {
+const producoesFiltradas = computed(() => {
   const agora = new Date()
-  const filtradas = s.producoes.filter(p => {
+  return s.producoes.filter(p => {
     if (periodoAtivo.value === 'total') return true
     const dataProd = new Date(p.data_producao)
     const dias = periodoAtivo.value === '7dias' ? 7 : 30
     const limite = new Date().setDate(agora.getDate() - dias)
     return dataProd >= limite
   })
+})
+
+const stats = computed(() => {
+  const filtradas = producoesFiltradas.value
 
   let totalQtd = 0, totalCusto = 0, totalVenda = 0
   const catMap = {}, recMap = {}, insumoMap = {}
@@ -202,6 +242,52 @@ const stats = computed(() => {
   const consumoInsumos = Object.values(insumoMap).sort((a,b) => b.total - a.total).slice(0, 8)
 
   return { totalQtd, totalCusto, totalVenda, totalLucro: totalVenda - totalCusto, porCategoria, topReceitas, consumoInsumos }
+})
+
+/* ── Inteligência de Auto-Combo ── */
+const popularidadeMap = computed(() => {
+  const map = {}
+  producoesFiltradas.value.forEach(p => { map[p.receita_id] = (map[p.receita_id] || 0) + 1 })
+  return map
+})
+
+function arredondarPreco(v) {
+  if (!v || v <= 0) return 0
+  return Math.ceil(v * 2) / 2
+}
+
+const autoCombo = computed(() => {
+  if (s.receitas.length < 2 || !producoesFiltradas.value.length) return null
+
+  const itemPopular = [...s.receitas]
+    .filter(r => !r.eh_intermediaria)
+    .sort((a, b) => (popularidadeMap.value[b.uuid] || 0) - (popularidadeMap.value[a.uuid] || 0))[0]
+
+  // 2. Encontrar o campeão de lucro que TAMBÉM tenha sido produzido no período
+  const itemLucro = [...s.receitas]
+    .filter(r => !r.eh_intermediaria && r.uuid !== itemPopular?.uuid && (popularidadeMap.value[r.uuid] || 0) > 0)
+    .sort((a, b) => s.getLucroInfo(b).percentual - s.getLucroInfo(a).percentual)[0]
+
+  if (!itemPopular || !itemLucro || (popularidadeMap.value[itemPopular.uuid] || 0) === 0) return null
+
+  const custoPop = s.getCustoTotal(itemPopular) / (itemPopular.rendimento || 1)
+  const custoLuc = s.getCustoTotal(itemLucro) / (itemLucro.rendimento || 1)
+  const custoTotal = (custoPop * 2) + custoLuc
+  
+  const precoBase = arredondarPreco(custoTotal * 3)
+  const lucroUnitario = precoBase - custoTotal
+  const margem = (lucroUnitario / precoBase) * 100
+
+  return {
+    nome: `${itemPopular.nome.split(' ')[0]} & ${itemLucro.nome.split(' ')[0]}`,
+    itemPopular, itemLucro, lucroUnitario, margem,
+    escala: [
+      { qtd: 1, total: precoBase, unitario: precoBase },
+      { qtd: 2, total: arredondarPreco((precoBase * 2) * 0.92), unitario: (arredondarPreco((precoBase * 2) * 0.92) / 2) },
+      { qtd: 3, total: arredondarPreco((precoBase * 3) * 0.88), unitario: (arredondarPreco((precoBase * 3) * 0.88) / 3) },
+      { qtd: 5, total: arredondarPreco((precoBase * 5) * 0.84), unitario: (arredondarPreco((precoBase * 5) * 0.84) / 5) }
+    ]
+  }
 })
 </script>
 
@@ -266,4 +352,31 @@ const stats = computed(() => {
 
 .hint { font-size: .75rem; color: var(--muted); font-style: italic; }
 .empty-mini { text-align: center; color: var(--muted); padding: 20px; font-size: .8rem; }
+
+/* ── Auto Combo Styles ── */
+.auto-combo-card { border: 2px solid var(--gold); background: linear-gradient(145deg, var(--gold-bg), var(--surface)); border-left-width: 5px; }
+.auto-combo-title { font-size: 1.1rem; font-weight: 800; color: var(--brown-dark); margin-bottom: 4px; letter-spacing: -0.4px; }
+.auto-combo-desc { font-size: 0.78rem; color: var(--muted); line-height: 1.4; margin-bottom: 12px; }
+.auto-combo-desc strong { color: var(--brown-mid); }
+.auto-combo-items { display: flex; flex-direction: column; gap: 4px; }
+.ac-item { font-size: 0.85rem; font-weight: 700; color: var(--brown-dark); display: flex; align-items: center; gap: 8px; }
+.ac-qtd { color: var(--gold-dark); background: #fff; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--gold-light); font-size: 0.75rem; font-family: var(--mono); }
+.auto-combo-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed var(--border2); padding-top: 10px; font-size: 0.78rem; }
+.auto-combo-footer strong { color: var(--green); font-size: 0.9rem; }
+
+/* ── Price Ladder ── */
+.price-ladder { background: var(--brown-dark); border-radius: var(--r-lg); padding: 12px; color: #fff; }
+.ladder-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.ladder-item { 
+  display: flex; flex-direction: column; align-items: center; 
+  background: rgba(255,255,255,0.1); padding: 8px 4px; border-radius: var(--r-md);
+}
+.l-qtd { font-size: 0.65rem; font-weight: 700; opacity: 0.8; }
+.l-val { font-size: 0.9rem; font-weight: 800; color: var(--gold-light); margin: 2px 0; font-family: var(--mono); }
+.l-unit { font-size: 0.55rem; opacity: 0.6; }
+
+@media (max-width: 370px) {
+  .ladder-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ladder-item { padding: 10px 4px; }
+}
 </style>

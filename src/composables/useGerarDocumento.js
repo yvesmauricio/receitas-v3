@@ -801,6 +801,89 @@ export function gerarDASNSIMEI({
   abrirJanela(html, `DASN-SIMEI ${ano}`)
 }
 
+// ══════════════════════════════════════════════════════════════════
+// RELATÓRIO TÉCNICO DE RECEITAS
+// ══════════════════════════════════════════════════════════════════
+export function gerarRelatorioReceitas({ empresa, receitas, produtos, todasReceitas }) {
+  const nomeEmpresa = empresa?.razao_social || empresa?.nome || 'ChocoStoq'
+  
+  const receitasHtml = receitas.map(r => {
+    const ingredientesHtml = (r.ingredientes || []).map(ing => {
+      const alvo = ing.tipo === 'receita' 
+        ? (todasReceitas || receitas).find(x => x.uuid === ing.id) 
+        : produtos.find(x => x.uuid === ing.id)
+      const nome = alvo?.nome || 'Item removido'
+      const unidade = ing.tipo === 'receita' ? alvo?.unidade_rendimento : alvo?.unidade_base
+      const qtd = Number(ing.quantidade || 0).toLocaleString('pt-BR', { maximumFractionDigits: 3 })
+      
+      return `
+        <tr>
+          <td>${escHtml(nome)}</td>
+          <td class="cen">${qtd}</td>
+          <td class="cen">${escHtml(unidade || '')}</td>
+        </tr>`
+    }).join('')
+
+    return `
+      <div style="page-break-inside: avoid; margin-bottom: 25pt; border: 1px solid #003580; border-radius: 4pt; overflow: hidden;">
+        <div class="quadro-titulo">${escHtml(r.nome)}</div>
+        <div class="quadro-subtitulo">${escHtml(r.categoria || 'Sem categoria')}</div>
+        <table class="id-box" style="margin-bottom: 0; border: none; border-top: 1px solid #003580;">
+          <tr>
+            <th style="width:30%">Rendimento</th>
+            <th style="width:30%">Peso Unitário</th>
+            <th style="width:40%">Preço de Venda</th>
+          </tr>
+          <tr>
+            <td class="cen"><strong>${r.rendimento || '-'} ${escHtml(r.unidade_rendimento || '')}</strong></td>
+            <td class="cen">${r.peso_unitario ? r.peso_unitario + ' g' : '-'}</td>
+            <td class="cen">R$ ${BRL(r.preco_sugerido)}</td>
+          </tr>
+        </table>
+        <table class="tabela">
+          <thead>
+            <tr>
+              <th>Ingrediente / Base</th>
+              <th style="width:15%">Qtd</th>
+              <th style="width:15%">Unidade</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ingredientesHtml || '<tr><td colspan="3" class="cen">Nenhum ingrediente cadastrado.</td></tr>'}
+          </tbody>
+        </table>
+      </div>`
+  }).join('')
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Relatório de Receitas – ${escHtml(nomeEmpresa)}</title>
+<style>${CSS_BASE}</style>
+</head>
+<body>
+<div class="toolbar-flutuante no-print">
+  <button onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+  <button class="btn-fechar" onclick="window.close()">✕ Fechar</button>
+</div>
+<div class="pagina">
+  <div class="doc-topo">
+    <div class="brasao">📖</div>
+    <div class="doc-topo-texto">
+      <div class="gov-linha">${escHtml(nomeEmpresa)}</div>
+      <div class="doc-titulo">Relatório Técnico de Receitas</div>
+      <div class="doc-subtitulo">Relação completa de insumos, rendimentos e precificação · Gerado em ${hoje()}</div>
+    </div>
+  </div>
+  ${receitasHtml}
+</div>
+</body>
+</html>`
+
+  abrirJanela(html, `Relatório de Receitas`)
+}
+
 // Escape HTML helper
 function escHtml(str) {
   return String(str || '')
