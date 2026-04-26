@@ -133,7 +133,7 @@
               <div class="backup-status">JSON</div>
               <div class="backup-btns">
                 <button class="backup-btn" @click="s.backupGeral">Exportar</button>
-                <label class="btn-sm outline">
+                <label class="backup-btn outline">
                   Importar
                   <input type="file" hidden accept=".json" @change="e => s.restaurarGeral(e.target.files[0])" />
                 </label>
@@ -162,6 +162,14 @@
                 <input v-model.number="company.teto_mei_anual" type="number" class="input" />
               </div>
               <p class="hint">Padrão: R$ 81.000,00. Altere caso haja novas resoluções do CGSN.</p>
+            </div>
+            <div class="fg">
+              <label class="label">Nº de Pessoas na Família</label>
+              <div class="input-with-icon">
+                <i class="fas fa-users"></i>
+                <input v-model.number="company.pessoas_familia" type="number" class="input" min="1" />
+              </div>
+              <p class="hint">Usado para calcular a Renda Per Capita no relatório mensal (CadÚnico/Bolsa Família).</p>
             </div>
           </div>
 

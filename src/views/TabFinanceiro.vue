@@ -317,6 +317,10 @@
                   <span>Saldo do negócio</span>
                   <strong :class="item.saldo_operacional >= 0 ? 'c-green' : 'c-red'">{{ R$(item.saldo_operacional) }}</strong>
                 </div>
+                <div class="mei-line highlight-per-capita">
+                  <span>Renda Per Capita ({{ s.company.pessoas_familia }} pess.)</span>
+                  <strong :class="item.renda_per_capita <= 218 ? 'c-green' : 'c-blue'">{{ R$(item.renda_per_capita) }}</strong>
+                </div>
                 <div class="mei-line"><span>Retiradas pessoais</span><strong class="c-red">{{ R$(item.saidas_pessoais) }}</strong></div>
                 <div class="mei-line total">
                   <span>Sobrou no mês</span>
@@ -1717,6 +1721,7 @@ onMounted(() => s.carregarFinanceiro())
 .mei-line span { color: var(--muted); }
 .mei-line strong { font-family: var(--mono); font-size: .88rem; }
 .mei-line.total { border-top: 1px solid var(--border2); margin-top: 4px; padding-top: 8px; font-weight: 700; border-bottom: none; }
+.highlight-per-capita { background: var(--teal-bg); margin: 2px -6px; padding: 6px; border-radius: 6px; border-bottom: none !important; }
 
 /* Report list */
 .report-list { display: flex; flex-direction: column; }

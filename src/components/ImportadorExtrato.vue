@@ -149,6 +149,10 @@
               <span>Renda Família</span>
               <strong>{{ R$(item.pessoal_rendas) }}</strong>
             </div>
+            <div class="mei-line" style="background: var(--teal-bg); border-radius: 4px; padding: 4px 6px;">
+              <span style="font-weight: 700; color: var(--teal)">Renda Per Capita</span>
+              <strong style="color: var(--teal)">{{ R$(item.renda_per_capita) }}</strong>
+            </div>
             <div class="mei-line total">
               <span>Sobra Real Família</span>
               <strong :class="item.pessoal_saldo >= 0 ? 'c-blue' : 'c-red'">{{ R$(item.pessoal_saldo) }}</strong>

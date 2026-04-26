@@ -30,7 +30,8 @@ export const useStore = defineStore('choco', () => {
     municipio: '',
     uf: '',
     cnae: '',
-    teto_mei_anual: 81000
+    teto_mei_anual: 81000,
+    pessoas_familia: 1
   })
   const googleDriveConfigured = computed(() => isGoogleDriveBackupConfigured())
 
@@ -1271,7 +1272,12 @@ export const useStore = defineStore('choco', () => {
         Number(item.entradas || 0) - Number(item.receitas_mei || 0) - Number(item.rendimento_financeiro || 0)
       ),
       saldo_operacional: Number(item.receitas_mei || 0) - Number(item.saidas_operacionais || 0),
-      saldo_mes: Number(item.entradas || 0) - Number(item.saidas_operacionais || 0) - Number(item.saidas_pessoais || 0)
+      saldo_mes: Number(item.entradas || 0) - Number(item.saidas_operacionais || 0) - Number(item.saidas_pessoais || 0),
+      get renda_per_capita() {
+        const num = Math.max(1, company.value.pessoas_familia || 1)
+        const familiarTotal = this.saldo_operacional + this.outras_entradas_nao_mei
+        return familiarTotal / num
+      }
     }))
   })
 
