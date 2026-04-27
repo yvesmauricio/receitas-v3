@@ -4,7 +4,6 @@
       <div class="tab-hdr-top">
         <h2 class="tab-title"><i class="fas fa-book-open"></i> Receitas</h2>
         <div class="tab-actions">
-          <button class="btn-icon" @click="abrirSimulador" title="Simulador de Combos e BI"><i class="fas fa-chart-line"></i></button>
           <button class="btn-icon" @click="gerarRelatorio" title="Gerar Relatório de Receitas"><i class="fas fa-file-pdf"></i></button>
           <button class="btn btn-primary btn-sm" @click="abrir(null)"><i class="fas fa-plus"></i> Nova</button>
         </div>
@@ -267,97 +266,6 @@
       </template>
     </BaseModal>
 
-    <!-- ─── Modal Simulador de Combos & BI ───────────────────── -->
-    <BaseModal v-if="modal === 'simulador'" title="Estratégia de Venda & Combos" @close="fecharModal">
-      <div class="modal-inner scroll-sec">
-        <!-- Insights de Produção (BI) -->
-        <div class="section-label">🧠 Insights de Produção Real</div>
-        <div class="bi-grid mb-16">
-          <div class="bi-card popular">
-            <span class="bi-lbl">🔥 Mais Produzidos (Saída)</span>
-            <div class="bi-list">
-              <div v-for="r in topSaida" :key="r.uuid" class="bi-item">
-                {{ r.nome }} <small>{{ popularidadeMap[r.uuid] }}x</small>
-              </div>
-            </div>
-          </div>
-          <div class="bi-card profit">
-            <span class="bi-lbl">💎 Mais Lucrativos (% Margem)</span>
-            <div class="bi-list">
-              <div v-for="r in topLucro" :key="r.uuid" class="bi-item">
-                {{ r.nome }} <small>{{ s.getLucroInfo(r).percentual.toFixed(0) }}%</small>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="alert" :class="comboFeedback.class" style="cursor: default">
-          <i class="fas fa-lightbulb"></i>
-          <div class="alert-body">
-            <div class="alert-title">{{ comboFeedback.title }}</div>
-            <div class="alert-sub" v-html="comboFeedback.msg"></div>
-          </div>
-        </div>
-
-        <div v-if="escalaSugerida.length && comboPrecoVenda > 0" class="price-ladder mt-16">
-          <div class="ladder-title">📈 Escala de Preço Sugerida (Promoção)</div>
-          <div class="ladder-grid">
-            <div v-for="p in escalaSugerida" :key="p.qtd" class="ladder-item">
-              <span class="l-qtd">{{ p.qtd }} un</span>
-              <strong class="l-val">{{ R$(p.total) }}</strong>
-              <small class="l-unit">({{ R$(p.unitario) }}/un)</small>
-            </div>
-          </div>
-        </div>
-
-        <div class="section-label mt-16">📦 Itens do Combo / Kit</div>
-        <div class="combo-builder">
-          <div v-for="(item, idx) in comboItens" :key="idx" class="combo-item-row">
-            <select v-model="item.id" class="input sm" style="flex: 2">
-              <option value="">Selecione uma receita...</option>
-              <option v-for="r in s.receitas" :key="r.uuid" :value="r.uuid">
-                {{ r.nome }}{{ getRecipeInsights(r) }}
-              </option>
-            </select>
-            <input v-model.number="item.qtd" type="number" class="input sm" style="flex: 0.8" placeholder="Qtd" />
-            <button class="btn-icon danger" @click="comboItens.splice(idx, 1)"><i class="fas fa-times"></i></button>
-          </div>
-          <button class="btn-add-outline mt-8" @click="comboItens.push({ id: '', qtd: 1 })">
-            <i class="fas fa-plus"></i> Adicionar ao Combo
-          </button>
-        </div>
-
-        <div v-if="statsCombo.custo > 0" class="profit-panel combo-result mt-16">
-          <div class="profit-row">
-            <span>Custo Total do Combo</span>
-            <strong>{{ R$(statsCombo.custo) }}</strong>
-          </div>
-          <div class="profit-row">
-            <span>Preço Sugerido (Markup 3x)</span>
-            <strong class="c-green">{{ R$(statsCombo.custo * 3) }}</strong>
-          </div>
-          <div class="fg mt-12">
-            <label class="label">Preço Final do Combo (Sua Venda)</label>
-            <div class="input-with-prefix">
-              <span class="input-prefix">R$</span>
-              <input v-model.number="comboPrecoVenda" class="input input-prefixed" type="number" />
-            </div>
-          </div>
-          <div class="profit-divider"></div>
-          <div class="profit-row profit-row-total">
-            <span>Lucro Estimado no Combo</span>
-            <span :class="statsCombo.lucro >= 0 ? 'gain' : 'loss'">
-              {{ R$(statsCombo.lucro) }} ({{ statsCombo.margem.toFixed(0) }}%)
-            </span>
-          </div>
-        </div>
-      </div>
-      <template #foot>
-        <div class="spacer"></div>
-        <button class="btn btn-secondary" @click="fecharModal">Fechar</button>
-      </template>
-    </BaseModal>
-
     <!-- ─── Modal Picker de Ingredientes ──────────────────────── -->
     <BaseModal v-if="modal === 'picker'" title="Adicionar Ingrediente" @close="fecharModal">
       <div class="modal-inner">
@@ -469,89 +377,6 @@ const { busca, categoriaAtiva, listaFiltrada } = useListFilter(
   categoryMap,
   'Trufa'
 )
-
-/* ── Simulador Combo ── */
-const comboItens = ref([{ id: '', qtd: 1 }])
-const comboPrecoVenda = ref(0)
-const statsCombo = computed(() => {
-  let custo = 0
-  comboItens.value.forEach(item => {
-    const r = s.receitas.find(x => x.uuid === item.id)
-    if (r) {
-      const custoUnit = s.getCustoTotal(r) / (r.rendimento || 1)
-      custo += custoUnit * (item.qtd || 0)
-    }
-  })
-  const lucro = comboPrecoVenda.value - custo
-  const margem = comboPrecoVenda.value > 0 ? (lucro / comboPrecoVenda.value) * 100 : 0
-  return { custo, lucro, margem }
-})
-
-/* ── Inteligência de Estratégia (BI) ── */
-const topSaida = computed(() => {
-  return [...s.receitas]
-    .filter(r => (popularidadeMap.value[r.uuid] || 0) > 0)
-    .sort((a, b) => popularidadeMap.value[b.uuid] - popularidadeMap.value[a.uuid])
-    .slice(0, 3)
-})
-
-const topLucro = computed(() => {
-  return [...s.receitas]
-    .sort((a, b) => s.getLucroInfo(b).percentual - s.getLucroInfo(a).percentual)
-    .slice(0, 3)
-})
-
-const comboFeedback = computed(() => {
-  if (comboItens.value.length <= 1 || !comboItens.value[0].id) {
-    return { title: 'Monte seu Kit', msg: 'Combine itens de <strong>alta saída</strong> com itens de <strong>alta margem</strong>.', class: 'alert-orange' }
-  }
-  const hasPopular = comboItens.value.some(i => topSaida.value.some(ts => ts.uuid === i.id))
-  const hasProfitable = comboItens.value.some(i => topLucro.value.some(tl => tl.uuid === i.id))
-
-  if (hasPopular && hasProfitable) return { title: 'Combo Equilibrado!', msg: 'Ótima escolha! Você está usando um campeão de vendas para puxar um produto de alto lucro.', class: 'alert-green' }
-  if (hasPopular) return { title: 'Combo de Volume', msg: 'Este combo foca em vender muito, mas cuidado: adicione algo de <strong>alto lucro</strong> para compensar.', class: 'alert-blue' }
-  return { title: 'Combo de Margem', msg: 'Margem excelente, mas garanta que o cliente veja valor. Adicione um item <strong>favorito</strong> para facilitar a venda.', class: 'alert-orange' }
-})
-
-const escalaSugerida = computed(() => {
-  if (comboPrecoVenda.value <= 0) return []
-  const p = comboPrecoVenda.value
-  return [
-    { qtd: 1, total: p, unitario: p },
-    { qtd: 2, total: arredondarPreco((p * 2) * 0.92), unitario: (arredondarPreco((p * 2) * 0.92) / 2) },
-    { qtd: 3, total: arredondarPreco((p * 3) * 0.88), unitario: (arredondarPreco((p * 3) * 0.88) / 3) },
-    { qtd: 5, total: arredondarPreco((p * 5) * 0.84), unitario: (arredondarPreco((p * 5) * 0.84) / 5) }
-  ]
-})
-
-function arredondarPreco(v) {
-  if (!v || v <= 0) return 0
-  // Arredonda sempre para cima para o próximo 0,50 (Ex: 5,12 -> 5,50 | 5,97 -> 6,00)
-  // Isso garante que você nunca perca margem no arredondamento e o preço fique "limpo".
-  return Math.ceil(v * 2) / 2
-}
-
-watch(statsCombo, (val) => {
-  if (comboPrecoVenda.value === 0 && val.custo > 0) comboPrecoVenda.value = arredondarPreco(val.custo * 3)
-})
-
-const popularidadeMap = computed(() => {
-  const map = {}
-  // Analisa o histórico de produções para identificar o que mais sai
-  s.producoes.forEach(p => { map[p.receita_id] = (map[p.receita_id] || 0) + 1 })
-  return map
-})
-
-function getRecipeInsights(r) {
-  const info = s.getLucroInfo(r)
-  const isHighMargin = info.percentual > 65
-  const isPopular = (popularidadeMap.value[r.uuid] || 0) >= 3
-  
-  if (isHighMargin && isPopular) return ' [⭐ Campeão]'
-  if (isHighMargin) return ' [💎 Alta Margem]'
-  if (isPopular) return ' [🔥 Alta Saída]'
-  return ''
-}
 
 const getEmptyForm = () => ({
   uuid: null,
@@ -752,12 +577,6 @@ function abrir(r) {
   abrirModal('receita')
 }
 
-function abrirSimulador() {
-  comboItens.value = [{ id: '', qtd: 1 }]
-  comboPrecoVenda.value = 0
-  abrirModal('simulador')
-}
-
 function gerarRelatorio() {
   gerarRelatorioReceitas({
     empresa: s.company,
@@ -904,31 +723,6 @@ async function excluirDireto(r) {
 .markup-btn.highlight { border-color: var(--green); background: var(--green-bg); }
 .markup-btn span { font-size: 0.9rem; font-weight: 800; color: var(--brown-dark); }
 .markup-btn small { font-size: 0.65rem; color: var(--muted); font-weight: 600; text-transform: uppercase; }
-
-/* ── BI Cards ── */
-.bi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.bi-card { background: var(--surface); padding: 10px; border-radius: var(--r-md); border: 1px solid var(--border); }
-.bi-lbl { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 6px; }
-.bi-list { display: flex; flex-direction: column; gap: 4px; }
-.bi-item { font-size: 0.72rem; font-weight: 700; color: var(--brown-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bi-item small { color: var(--muted); font-weight: 500; margin-left: 2px; }
-
-/* ── Price Ladder ── */
-.price-ladder { background: var(--brown-dark); border-radius: var(--r-lg); padding: 12px; color: #fff; }
-.ladder-title { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: var(--gold-light); margin-bottom: 10px; text-align: center; }
-.ladder-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.ladder-item { 
-  display: flex; flex-direction: column; align-items: center; 
-  background: rgba(255,255,255,0.1); padding: 8px 4px; border-radius: var(--r-md);
-}
-.l-qtd { font-size: 0.65rem; font-weight: 700; opacity: 0.8; }
-.l-val { font-size: 0.9rem; font-weight: 800; color: var(--gold-light); margin: 2px 0; }
-.l-unit { font-size: 0.55rem; opacity: 0.6; }
-
-/* ── Combo Builder ── */
-.combo-item-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; }
-.combo-result { background: var(--surface); border: 2px solid var(--gold); }
-.c-green { color: var(--green) !important; }
 
 /* ── Ingredientes no formulário ── */
 .ing-empty-state {

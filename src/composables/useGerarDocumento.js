@@ -24,8 +24,6 @@ function abrirJanela(html, titulo) {
   win.document.write(html)
   win.document.close()
   win.focus()
-  // aguarda renderização antes de imprimir
-  setTimeout(() => win.print(), 800)
 }
 
 // ── CSS COMPARTILHADO ───────────────────────────────────────────────
