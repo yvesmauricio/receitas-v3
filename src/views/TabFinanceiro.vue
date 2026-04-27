@@ -124,6 +124,24 @@
           </div>
         </div>
 
+        <div class="fsep"></div>
+
+        <!-- ③ Natureza (Tipo de Gasto) -->
+        <div class="fsec">
+          <span class="fsec-lbl"><i class="fas fa-filter"></i> Tipo de Gasto</span>
+          <div class="fchips">
+            <button class="fchip" :class="{ active: filtroNatureza === 'entrada' }" @click="selecionarNatureza('entrada')">
+              Receitas MEI
+            </button>
+            <button class="fchip" :class="{ active: filtroNatureza === 'operacional' }" @click="selecionarNatureza('operacional')">
+              Custos Operacionais
+            </button>
+            <button class="fchip" :class="{ active: filtroNatureza === 'pessoal' }" @click="selecionarNatureza('pessoal')">
+              Retiradas Pessoais
+            </button>
+          </div>
+        </div>
+
         <!-- Painel de categorias -->
         <div v-if="mostrarFiltroCategorias" class="filtro-categoria-sheet">
           <button class="cat-btn cat-btn-todas" :class="{ selected: !filtroCategoria }" @click="selecionarCategoria('')">
@@ -150,7 +168,7 @@
 
         <div class="fsep"></div>
 
-        <!-- ③ Busca -->
+        <!-- ④ Busca -->
         <div class="fsec">
           <span class="fsec-lbl"><i class="fas fa-magnifying-glass"></i> Busca</span>
           <div class="fbusca-row">
@@ -167,7 +185,7 @@
         </div>
 
         <!-- Status de filtros ativos -->
-        <div v-if="filtroBanco || filtroCategoria || buscaDescricao" class="filtro-status">
+        <div v-if="filtroBanco || filtroCategoria || filtroNatureza || buscaDescricao" class="filtro-status">
           <span class="filtro-count">{{ lancamentosFiltrados.length }} lançamento(s) encontrado(s)</span>
           <button class="btn-limpar" @click="limparFiltros">
             <i class="fas fa-xmark"></i> Limpar
@@ -234,7 +252,13 @@
       <div v-else class="lancamentos-list">
         <div v-for="item in lancamentosFiltrados" :key="item.id"
           class="lancamento-row"
-          :class="{ 'row-interna': item.natureza === 'interna', 'row-selected': selecionados.has(item.id) }"
+          :class="{ 
+            'row-interna': item.natureza === 'interna', 
+            'row-operacional': item.natureza === 'operacional',
+            'row-pessoal': item.natureza === 'pessoal',
+            'row-entrada': item.natureza === 'entrada',
+            'row-selected': selecionados.has(item.id) 
+          }"
           @click="modoSelecao ? toggleItem(item.id) : abrirModalEdicao(item)">
           <!-- Checkbox modo seleção -->
           <div v-if="modoSelecao" class="row-check">
@@ -849,6 +873,7 @@ const abaAtiva = ref('lancamentos')
 // ── Filtros ──
 const filtroBanco     = ref('')
 const filtroMes       = ref('')
+const filtroNatureza  = ref('')
 const filtroCategoria = ref('')
 const mostrarFiltroCategorias = ref(false)
 const buscaDescricao = ref('')
@@ -862,7 +887,7 @@ const filtrosBanco = [
 ]
 
 function limparFiltros() {
-  filtroBanco.value = filtroCategoria.value = ''
+  filtroBanco.value = filtroCategoria.value = filtroNatureza.value = ''
   buscaDescricao.value = ''
   buscaNoExtratoInteiro.value = false
   mostrarFiltroCategorias.value = false
@@ -875,6 +900,7 @@ const lancamentosBaseFiltrados = computed(() =>
     if (filtroBanco.value && (item.banco || 'pagbank') !== filtroBanco.value) return false
     if (filtroMes.value && (item.mes_ref || '') !== filtroMes.value) return false
     if (filtroCategoria.value && item.categoria !== filtroCategoria.value) return false
+    if (filtroNatureza.value && item.natureza !== filtroNatureza.value) return false
     return true
   })
 )
@@ -1031,7 +1057,13 @@ function labelNatureza(n) {
 
 function selecionarCategoria(categoria) {
   filtroCategoria.value = categoria
+  filtroNatureza.value = '' // Limpa o filtro de natureza ao selecionar uma categoria específica
   mostrarFiltroCategorias.value = false
+}
+
+function selecionarNatureza(natureza) {
+  filtroNatureza.value = filtroNatureza.value === natureza ? '' : natureza
+  filtroCategoria.value = '' // Limpa o filtro de categoria ao selecionar uma natureza
 }
 
 // ── Multi-seleção ──
@@ -1635,10 +1667,30 @@ onMounted(() => s.carregarFinanceiro())
 
 /* ── Lista ─── */
 .lancamentos-list { padding-bottom: max(96px, calc(72px + env(safe-area-inset-bottom))); }
-.lancamento-row { display: flex; align-items: center; gap: 8px; padding: 11px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
+.lancamento-row { 
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+  padding: 11px 16px; 
+  border-bottom: 1px solid var(--border); 
+  border-left: 4px solid transparent; 
+  cursor: pointer; 
+  transition: background 0.15s, border-left-color 0.15s; 
+}
 .lancamento-row:active { background: var(--cream); }
-.row-interna { opacity: .65; background: #fffbeb; }
+
+.row-operacional { border-left-color: var(--red); }
+.row-operacional .badge { background: var(--red-bg); color: var(--red); }
+
+.row-pessoal { border-left-color: #7c3aed; }
+.row-pessoal .badge { background: #f5f3ff; color: #7c3aed; }
+
+.row-entrada { border-left-color: var(--green); }
+.row-entrada .badge { background: var(--green-bg); color: var(--green); }
+
+.row-interna { opacity: .65; background: #fffbeb; border-left-color: #f59e0b; }
 .row-interna:active { background: #fef3c7; }
+
 .row-selected { background: var(--gold-bg) !important; }
 
 /* Checkbox de seleção */

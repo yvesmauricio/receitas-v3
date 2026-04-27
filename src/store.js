@@ -108,38 +108,47 @@ export const useStore = defineStore('choco', () => {
   // Transferências entre contas PRÓPRIAS (Itaú→PagBank ou PagBank→Itaú):
   //   natureza 'interna' → excluída dos totais de receita e despesa.
 
-  const CATEGORIAS_MEI = [
+const CATEGORIAS_MEI = [
     // ── RECEITAS ──────────────────────────────────────────────
-    { nome: 'Receita de Vendas',        natureza: 'entrada',      grupo: 'Receitas',           icon: 'fa-arrow-trend-up' },
+    { nome: 'Receita de Vendas',         natureza: 'entrada',      grupo: 'Receitas',           icon: 'fa-arrow-trend-up' },
     { nome: 'Outras Receitas',           natureza: 'entrada',      grupo: 'Receitas',           icon: 'fa-plus-circle' },
     { nome: 'Rendimento Financeiro',     natureza: 'entrada',      grupo: 'Receitas',           icon: 'fa-piggy-bank' },
     { nome: 'Renda Pessoal',             natureza: 'pessoal',      grupo: 'Receitas Pessoais',  icon: 'fa-hand-holding-heart' },
-    // ── CUSTOS OPERACIONAIS (dedutíveis MEI) ──────────────────
-    { nome: 'Insumos e Matéria-Prima',   natureza: 'operacional',  grupo: 'Custos Operacionais', icon: 'fa-basket-shopping' },
-    { nome: 'Embalagens e Materiais',    natureza: 'operacional',  grupo: 'Custos Operacionais', icon: 'fa-box' },
-    { nome: 'Manutenção e Reparos',      natureza: 'operacional',  grupo: 'Custos Operacionais', icon: 'fa-screwdriver-wrench' },
-    { nome: 'Serviços e Assinaturas',    natureza: 'operacional',  grupo: 'Custos Operacionais', icon: 'fa-receipt' },
-    { nome: 'Transporte e Entrega',      natureza: 'operacional',  grupo: 'Custos Operacionais', icon: 'fa-truck' },
-    { nome: 'Tarifas Bancárias',         natureza: 'operacional',  grupo: 'Custos Operacionais', icon: 'fa-landmark' },
-    { nome: 'Impostos e Contribuições',  natureza: 'operacional',  grupo: 'Custos Operacionais', icon: 'fa-file-invoice-dollar' },
-    { nome: 'Outras Despesas',           natureza: 'operacional',  grupo: 'Custos Operacionais', icon: 'fa-minus-circle' },
-    // ── DESPESAS PESSOAIS (não dedutíveis) ────────────────────
-    { nome: 'Pró-labore / Retirada',    natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-user-tie' },
-    { nome: 'Moradia',                   natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-house' },
-    { nome: 'Condomínio',                natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-building' },
-    { nome: 'Energia Elétrica',          natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-bolt' },
-    { nome: 'Gás',                       natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-fire-flame-simple' },
-    { nome: 'Internet e Telefonia',      natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-wifi' },
-    { nome: 'Alimentação Pessoal',       natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-utensils' },
-    { nome: 'Padaria e Lanchonete',      natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-utensils' },
-    { nome: 'Mercado',                   natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-utensils' },
-    { nome: 'Saúde e Bem-Estar',         natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-heart-pulse' },
-    { nome: 'Vestuário e Compras',       natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-shirt' },
-    { nome: 'Compras no Débito',         natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-credit-card' },
-    { nome: 'Lazer e Outros Pessoais',   natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-star' },
+
+    // ── CUSTOS DE PRODUÇÃO (Variáveis) ────────────────────────
+    // Separar insumos ajuda a ver o peso do chocolate vs recheios caros (Nutella)
+    { nome: 'Insumos: Chocolate e Bases', natureza: 'operacional',  grupo: 'Custos de Produção', icon: 'fa-cookie' },
+    { nome: 'Insumos: Recheios e Frutas', natureza: 'operacional',  grupo: 'Custos de Produção', icon: 'fa-apple-whole' },
+    { nome: 'Insumos: Nutella e Premium', natureza: 'operacional',  grupo: 'Custos de Produção', icon: 'fa-star' },
+    { nome: 'Embalagens e Etiquetas',    natureza: 'operacional',  grupo: 'Custos de Produção', icon: 'fa-box' },
+    { nome: 'Manutenção Equipamentos/Cozinha', natureza: 'operacional', grupo: 'Custos Operacionais', icon: 'fa-screwdriver-wrench' },
+
+    // ── LOGÍSTICA E VENDAS ────────────────────────────────────
+    // Aqui você separa a passagem do ônibus/integração do Uber de entrega
+    { nome: 'Transporte: Passagens/Integração', natureza: 'operacional', grupo: 'Logística',      icon: 'fa-bus' },
+    { nome: 'Transporte: Uber/Entregas',  natureza: 'operacional',  grupo: 'Logística',      icon: 'fa-car' },
+    { nome: 'Marketing e Taxas de Cartão', natureza: 'operacional',  grupo: 'Logística',      icon: 'fa-bullhorn' },
+
+    // ── INFRAESTRUTURA DO NEGÓCIO ─────────────────────────────
+    { nome: 'DAS-MEI',                   natureza: 'operacional',  grupo: 'Infraestrutura',     icon: 'fa-file-invoice-dollar' },
+    { nome: 'Manutenção de Equipamentos', natureza: 'operacional',  grupo: 'Infraestrutura',     icon: 'fa-screwdriver-wrench' },
+    { nome: 'Serviços e Assinaturas (App/Internet)', natureza: 'operacional', grupo: 'Infraestrutura', icon: 'fa-receipt' },
+    { nome: 'Tarifas Bancárias PJ',      natureza: 'operacional',  grupo: 'Infraestrutura',     icon: 'fa-landmark' },
+
+    // ── DESPESAS PESSOAIS (Família) ───────────────────────────
+    { nome: 'Pró-labore / Retirada',     natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-user-tie' },
+    { nome: 'Moradia e Condomínio',      natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-house' },
+    { nome: 'Energia Elétrica (Casa)',   natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-bolt' },
+    { nome: 'Gás Naturgy (Residencial)', natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-fire-flame-simple' },
+    { nome: 'Mercado e Alimentação',     natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-cart-shopping' },
+    { nome: 'Saúde e Farmácia',          natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-pills' },
+    { nome: 'Educação e Filhos',         natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-graduation-cap' },
+    { nome: 'Lazer e Compras',           natureza: 'pessoal',      grupo: 'Despesas Pessoais',  icon: 'fa-bag-shopping' },
+    { nome: 'Manutenção da Casa (Estrutural)', natureza: 'pessoal', grupo: 'Despesas Pessoais', icon: 'fa-toolbox' },
+    { nome: 'Moradia e Condomínio', natureza: 'pessoal', grupo: 'Despesas Pessoais', icon: 'fa-house' },
     // ── ESPECIAL ──────────────────────────────────────────────
     { nome: 'Transferência Interna',     natureza: 'interna',      grupo: 'Especial',           icon: 'fa-arrow-right-arrow-left' },
-  ]
+];
 
   // Termos que identificam remetente/destinatário como conta própria
   const TERMOS_CONTA_PROPRIA = [
